@@ -50,16 +50,24 @@ From this project folder on your PC:
 .\deploy-to-oracle.ps1
 ```
 
-The script uploads the project to:
+The script connects to your VPS, pulls the latest code from GitHub, rebuilds the app, and restarts the running service.
+
+GitHub repo:
 
 ```text
-/home/ubuntu/oracle-vps-file-manager
+https://github.com/kumaark7/oracle-vps-file-manager
 ```
 
-Then it installs the running app into:
+The running app is installed into:
 
 ```text
 /opt/oracle-vps-file-manager
+```
+
+The VPS keeps a source checkout here:
+
+```text
+/usr/local/src/oracle-vps-file-manager
 ```
 
 After install, open:
@@ -73,6 +81,25 @@ The installer prints the generated admin password the first time it runs.
 If the page does not open, allow inbound TCP port `80` in your Oracle Cloud instance security list or network security group.
 
 Important: using only the IP address usually means plain HTTP. For the safest public setup, add a domain later and enable HTTPS with Certbot.
+
+## Update Flow
+
+For normal future updates:
+
+1. Commit and push your latest changes to GitHub.
+2. Run the deploy script from Windows:
+
+```powershell
+.\deploy-to-oracle.ps1
+```
+
+That is enough for most releases.
+
+If you ever want to update directly from the VPS terminal instead:
+
+```bash
+sudo APP_NAME=oracle-vps-file-manager REPO_URL=https://github.com/kumaark7/oracle-vps-file-manager.git BRANCH=main bash /usr/local/src/oracle-vps-file-manager/deploy/install-on-vps.sh
+```
 
 ## Server Settings
 

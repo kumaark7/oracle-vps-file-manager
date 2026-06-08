@@ -1,19 +1,20 @@
 #!/usr/bin/env bash
 set -euo pipefail
 
-APP_NAME="oracle-vps-file-manager"
-APP_DIR="/opt/${APP_NAME}"
-ENV_FILE="/etc/${APP_NAME}.env"
-SERVICE_FILE="/etc/systemd/system/${APP_NAME}.service"
-NGINX_FILE="/etc/nginx/sites-available/${APP_NAME}"
-NGINX_LINK="/etc/nginx/sites-enabled/${APP_NAME}"
+APP_NAME="${APP_NAME:-oracle-vps-file-manager}"
+REPO_URL="${REPO_URL:-https://github.com/kumaark7/oracle-vps-file-manager.git}"
+BRANCH="${BRANCH:-main}"
+APP_DIR="${APP_DIR:-/opt/${APP_NAME}}"
+SOURCE_DIR="${SOURCE_DIR:-/usr/local/src/${APP_NAME}}"
+ENV_FILE="${ENV_FILE:-/etc/${APP_NAME}.env}"
+SERVICE_FILE="${SERVICE_FILE:-/etc/systemd/system/${APP_NAME}.service}"
+NGINX_FILE="${NGINX_FILE:-/etc/nginx/sites-available/${APP_NAME}}"
+NGINX_LINK="${NGINX_LINK:-/etc/nginx/sites-enabled/${APP_NAME}}"
 
 if [[ "$(id -u)" -ne 0 ]]; then
   echo "Run this script with sudo."
   exit 1
 fi
-
-cd "$(dirname "$0")/.."
 
 if ! command -v node >/dev/null 2>&1; then
   apt-get update
@@ -26,14 +27,27 @@ if ! command -v node >/dev/null 2>&1; then
 fi
 
 apt-get update
-apt-get install -y nginx rsync
+apt-get install -y git nginx rsync
+
+mkdir -p "$(dirname "$SOURCE_DIR")"
+
+if [[ -d "${SOURCE_DIR}/.git" ]]; then
+  git -C "$SOURCE_DIR" remote set-url origin "$REPO_URL"
+  git -C "$SOURCE_DIR" fetch origin "$BRANCH" --prune
+  git -C "$SOURCE_DIR" checkout -B "$BRANCH" "origin/${BRANCH}"
+  git -C "$SOURCE_DIR" reset --hard "origin/${BRANCH}"
+  git -C "$SOURCE_DIR" clean -fd
+else
+  rm -rf "$SOURCE_DIR"
+  git clone --depth 1 --branch "$BRANCH" "$REPO_URL" "$SOURCE_DIR"
+fi
 
 mkdir -p "$APP_DIR"
 rsync -a --delete \
   --exclude node_modules \
   --exclude .git \
   --exclude dist \
-  ./ "$APP_DIR/"
+  "${SOURCE_DIR}/" "$APP_DIR/"
 
 cd "$APP_DIR"
 npm ci
@@ -74,3 +88,4 @@ echo
 echo "Installed ${APP_NAME}"
 echo "Open: http://144.24.158.211"
 echo "Settings: ${ENV_FILE}"
+echo "Source checkout: ${SOURCE_DIR}"

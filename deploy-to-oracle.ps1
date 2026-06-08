@@ -3,7 +3,9 @@ $ErrorActionPreference = "Stop"
 $ProjectName = "oracle-vps-file-manager"
 $Server = "ubuntu@144.24.158.211"
 $KeyPath = "D:\Kishore\ssh-key-2026-06-07.key"
-$RemoteUploadPath = "/home/ubuntu/$ProjectName"
+$RepoUrl = "https://github.com/kumaark7/oracle-vps-file-manager.git"
+$Branch = "main"
+$RemoteInstallScript = "/tmp/${ProjectName}-install-on-vps.sh"
 
 function Invoke-Native {
   param(
@@ -20,29 +22,20 @@ function Invoke-Native {
   }
 }
 
-Write-Host "Uploading $ProjectName to $Server..."
-$sshPrepareArgs = @("-i", $KeyPath, $Server, "rm -rf '$RemoteUploadPath' && mkdir -p '$RemoteUploadPath'")
-Invoke-Native "ssh" $sshPrepareArgs
-
+Write-Host "Sending deploy helper to $Server..."
 $scpArgs = @(
   "-i", $KeyPath,
-  "-r",
-  "package.json",
-  "package-lock.json",
-  "index.html",
-  "postcss.config.js",
-  "tailwind.config.js",
-  "vite.config.js",
-  "server.cjs",
-  "src",
-  "deploy",
-  "README.md",
-  "${Server}:${RemoteUploadPath}/"
+  "deploy/install-on-vps.sh",
+  "${Server}:${RemoteInstallScript}"
 )
 Invoke-Native "scp" $scpArgs
 
-Write-Host "Installing on the VPS..."
-$sshInstallArgs = @("-i", $KeyPath, $Server, "cd '$RemoteUploadPath' && sudo bash deploy/install-on-vps.sh")
+Write-Host "Running GitHub-based install/update on the VPS..."
+$sshInstallArgs = @(
+  "-i", $KeyPath,
+  $Server,
+  "sudo APP_NAME='$ProjectName' REPO_URL='$RepoUrl' BRANCH='$Branch' bash '$RemoteInstallScript' && rm -f '$RemoteInstallScript'"
+)
 Invoke-Native "ssh" $sshInstallArgs
 
 Write-Host ""
