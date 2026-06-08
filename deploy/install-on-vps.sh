@@ -2,7 +2,7 @@
 set -euo pipefail
 
 APP_NAME="${APP_NAME:-oracle-vps-file-manager}"
-REPO_URL="${REPO_URL:-https://github.com/kumaark7/oracle-vps-file-manager.git}"
+REPO_URL="${REPO_URL:?Set REPO_URL to your Git repository URL}"
 BRANCH="${BRANCH:-main}"
 APP_DIR="${APP_DIR:-/opt/${APP_NAME}}"
 SOURCE_DIR="${SOURCE_DIR:-/usr/local/src/${APP_NAME}}"
@@ -10,6 +10,7 @@ ENV_FILE="${ENV_FILE:-/etc/${APP_NAME}.env}"
 SERVICE_FILE="${SERVICE_FILE:-/etc/systemd/system/${APP_NAME}.service}"
 NGINX_FILE="${NGINX_FILE:-/etc/nginx/sites-available/${APP_NAME}}"
 NGINX_LINK="${NGINX_LINK:-/etc/nginx/sites-enabled/${APP_NAME}}"
+PUBLIC_URL="${PUBLIC_URL:-http://YOUR_SERVER_IP}"
 
 if [[ "$(id -u)" -ne 0 ]]; then
   echo "Run this script with sudo."
@@ -88,6 +89,6 @@ systemctl restart nginx
 
 echo
 echo "Installed ${APP_NAME}"
-echo "Open: http://144.24.158.211"
+echo "Open: ${PUBLIC_URL}"
 echo "Settings: ${ENV_FILE}"
 echo "Source checkout: ${SOURCE_DIR}"

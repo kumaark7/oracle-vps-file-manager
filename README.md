@@ -17,7 +17,7 @@ Recommended VPS folder:
 Public URL without buying a domain:
 
 ```text
-http://144.24.158.211
+http://YOUR_SERVER_IP
 ```
 
 ## Do You Need A Domain?
@@ -37,7 +37,7 @@ No. Do not upload the private key to the VPS.
 The private key is only needed from your computer to log in and upload the project:
 
 ```text
-D:\Kishore\ssh-key-2026-06-07.key
+D:\path\to\your-key.pem
 ```
 
 Once this app runs on the VPS, it manages files directly from the VPS filesystem.
@@ -55,7 +55,7 @@ The script connects to your VPS, pulls the latest code from GitHub, rebuilds the
 GitHub repo:
 
 ```text
-https://github.com/kumaark7/oracle-vps-file-manager
+https://github.com/YOUR_GITHUB_USERNAME/oracle-vps-file-manager
 ```
 
 The running app is installed into:
@@ -73,7 +73,7 @@ The VPS keeps a source checkout here:
 After install, open:
 
 ```text
-http://144.24.158.211
+http://YOUR_SERVER_IP
 ```
 
 The installer prints the generated admin password the first time it runs.
@@ -98,7 +98,7 @@ That is enough for most releases.
 If you ever want to update directly from the VPS terminal instead:
 
 ```bash
-sudo APP_NAME=oracle-vps-file-manager REPO_URL=https://github.com/kumaark7/oracle-vps-file-manager.git BRANCH=main bash /usr/local/src/oracle-vps-file-manager/deploy/install-on-vps.sh
+sudo APP_NAME=oracle-vps-file-manager REPO_URL=https://github.com/YOUR_GITHUB_USERNAME/oracle-vps-file-manager.git BRANCH=main bash /usr/local/src/oracle-vps-file-manager/deploy/install-on-vps.sh
 ```
 
 ## Server Settings
@@ -157,7 +157,7 @@ sudo systemctl restart nginx
 
 If you later buy a domain:
 
-1. Point an `A` record to `144.24.158.211`.
+1. Point an `A` record to `YOUR_SERVER_IP`.
 2. Copy `deploy/nginx-domain.conf` to Nginx.
 3. Replace `files.example.com` with your domain.
 4. Install HTTPS with Certbot.

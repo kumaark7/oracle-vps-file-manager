@@ -3,7 +3,7 @@
 This folder contains a simple Android WebView app for the live Oracle VPS File Manager:
 
 ```text
-http://144.24.158.211/
+http://YOUR_SERVER_IP/
 ```
 
 ## What it does
@@ -20,7 +20,7 @@ http://144.24.158.211/
 3. Select:
 
 ```text
-C:\Users\hemachandiran\Documents\New project\android
+<project-folder>\android
 ```
 
 4. Let Android Studio install any missing SDK pieces
@@ -41,5 +41,6 @@ android\app\build\outputs\apk\debug\app-debug.apk
 ## Notes
 
 - This app points to the live server URL, not a bundled offline copy.
-- Because your live app currently uses `http`, the Android app enables cleartext traffic for `144.24.158.211`.
-- If you later move to `https`, update `MainActivity.java` and `network_security_config.xml`.
+- Before building, update `MainActivity.java` with your live app URL.
+- If you use plain `http`, also update `network_security_config.xml` with your server host.
+- If you later move to `https`, remove the cleartext exception or switch it to your secure domain.

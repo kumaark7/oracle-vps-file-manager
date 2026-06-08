@@ -7,3 +7,4 @@ dist
 bulk-smoke-*
 details-smoke-*.txt
 tools/phone-mirror/phone-mirror-devices.json
+deploy-to-oracle.local.ps1

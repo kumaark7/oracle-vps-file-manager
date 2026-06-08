@@ -14,7 +14,7 @@ import androidx.appcompat.app.AppCompatActivity;
 import androidx.swiperefreshlayout.widget.SwipeRefreshLayout;
 
 public class MainActivity extends AppCompatActivity {
-    private static final String APP_URL = "http://144.24.158.211/";
+    private static final String APP_URL = "http://YOUR_SERVER_IP/";
 
     private WebView webView;
     private SwipeRefreshLayout refreshLayout;
