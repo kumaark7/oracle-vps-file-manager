@@ -1,0 +1,126 @@
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+:root {
+  color-scheme: dark;
+  font-family: Inter, ui-sans-serif, system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
+  background: #020617;
+}
+
+* {
+  box-sizing: border-box;
+}
+
+body {
+  margin: 0;
+  min-width: 320px;
+  min-height: 100vh;
+  background:
+    linear-gradient(180deg, rgba(15, 23, 42, 0.98), rgba(2, 6, 23, 1) 42%),
+    #020617;
+}
+
+button,
+select,
+input,
+textarea {
+  font: inherit;
+}
+
+button {
+  transition:
+    border-color 150ms ease,
+    background-color 150ms ease,
+    color 150ms ease,
+    opacity 150ms ease;
+}
+
+.control {
+  height: 2.5rem;
+  border-radius: 0.5rem;
+  border: 1px solid #334155;
+  background: #020617;
+  padding: 0 0.75rem;
+  color: #e2e8f0;
+  outline: none;
+}
+
+.control:focus {
+  border-color: #6ee7b7;
+}
+
+.icon-button {
+  display: inline-flex;
+  width: 2.5rem;
+  height: 2.5rem;
+  align-items: center;
+  justify-content: center;
+  border-radius: 0.5rem;
+  border: 1px solid #334155;
+  background: #0f172a;
+  color: #cbd5e1;
+}
+
+.icon-button:hover {
+  border-color: #6ee7b7;
+  color: #f8fafc;
+}
+
+.selection-checkbox {
+  width: 1rem;
+  height: 1rem;
+  accent-color: #34d399;
+}
+
+.storage-launcher {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 1rem;
+  border-radius: 1rem;
+  border: 1px solid rgba(52, 211, 153, 0.18);
+  background:
+    linear-gradient(135deg, rgba(16, 185, 129, 0.16), rgba(15, 23, 42, 0.95) 62%),
+    #0f172a;
+  padding: 1rem;
+  color: #e2e8f0;
+}
+
+.storage-launcher:hover {
+  border-color: rgba(52, 211, 153, 0.35);
+}
+
+.storage-launcher__icon {
+  display: inline-flex;
+  width: 2.5rem;
+  height: 2.5rem;
+  align-items: center;
+  justify-content: center;
+  border-radius: 0.85rem;
+  background: rgba(255, 255, 255, 0.12);
+  color: #bbf7d0;
+}
+
+.storage-card {
+  border-radius: 1rem;
+  border: 1px solid #e2e8f0;
+  padding: 1.1rem;
+  background: white;
+}
+
+.storage-card--sky {
+  background: linear-gradient(180deg, #f8fbff 0%, #eef6ff 100%);
+}
+
+.storage-card--emerald {
+  background: linear-gradient(180deg, #f7fffb 0%, #ecfdf5 100%);
+}
+
+.storage-card--amber {
+  background: linear-gradient(180deg, #fffdf7 0%, #fffbeb 100%);
+}
+
+.storage-card--rose {
+  background: linear-gradient(180deg, #fff9fa 0%, #fff1f2 100%);
+}

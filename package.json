@@ -1,0 +1,25 @@
+{
+  "name": "oracle-vps-file-manager",
+  "version": "1.0.0",
+  "private": true,
+  "type": "module",
+  "scripts": {
+    "dev": "vite",
+    "build": "vite build --configLoader runner",
+    "preview": "vite preview",
+    "manager": "node ./node_modules/vite/bin/vite.js build --configLoader runner && node server.cjs",
+    "start": "node server.cjs"
+  },
+  "dependencies": {
+    "@vitejs/plugin-react": "^5.0.4",
+    "vite": "^7.1.7",
+    "react": "^19.1.1",
+    "react-dom": "^19.1.1",
+    "lucide-react": "^0.544.0"
+  },
+  "devDependencies": {
+    "tailwindcss": "^3.4.17",
+    "postcss": "^8.5.6",
+    "autoprefixer": "^10.4.21"
+  }
+}

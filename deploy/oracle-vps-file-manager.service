@@ -1,0 +1,18 @@
+[Unit]
+Description=Oracle VPS File Manager
+After=network.target
+
+[Service]
+Type=simple
+WorkingDirectory=/opt/oracle-vps-file-manager
+EnvironmentFile=/etc/oracle-vps-file-manager.env
+ExecStart=/usr/bin/node /opt/oracle-vps-file-manager/server.cjs
+Restart=always
+RestartSec=3
+User=ubuntu
+Group=ubuntu
+NoNewPrivileges=true
+PrivateTmp=true
+
+[Install]
+WantedBy=multi-user.target

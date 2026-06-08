@@ -1,0 +1,229 @@
+# Oracle VPS File Manager
+
+A self-hosted file manager for your Oracle VPS.
+
+Project name:
+
+```text
+oracle-vps-file-manager
+```
+
+Recommended VPS folder:
+
+```text
+/opt/oracle-vps-file-manager
+```
+
+Public URL without buying a domain:
+
+```text
+http://144.24.158.211
+```
+
+## Do You Need A Domain?
+
+No. You can host this directly on your Oracle VPS public IP.
+
+A domain is optional. Buy one only if you want a cleaner address such as:
+
+```text
+https://files.yourdomain.com
+```
+
+## Do You Need The Private Key On The VPS?
+
+No. Do not upload the private key to the VPS.
+
+The private key is only needed from your computer to log in and upload the project:
+
+```text
+D:\Kishore\ssh-key-2026-06-07.key
+```
+
+Once this app runs on the VPS, it manages files directly from the VPS filesystem.
+
+## Deploy From Windows
+
+From this project folder on your PC:
+
+```powershell
+.\deploy-to-oracle.ps1
+```
+
+The script uploads the project to:
+
+```text
+/home/ubuntu/oracle-vps-file-manager
+```
+
+Then it installs the running app into:
+
+```text
+/opt/oracle-vps-file-manager
+```
+
+After install, open:
+
+```text
+http://144.24.158.211
+```
+
+The installer prints the generated admin password the first time it runs.
+
+If the page does not open, allow inbound TCP port `80` in your Oracle Cloud instance security list or network security group.
+
+Important: using only the IP address usually means plain HTTP. For the safest public setup, add a domain later and enable HTTPS with Certbot.
+
+## Server Settings
+
+After installation, settings live here:
+
+```text
+/etc/oracle-vps-file-manager.env
+```
+
+Default settings:
+
+```text
+PORT=4174
+HOST=127.0.0.1
+FILE_ROOT=/home/ubuntu
+ADMIN_USER=admin
+ADMIN_PASSWORD=generated-during-install
+SESSION_SECRET=generated-during-install
+```
+
+To change the file root or password:
+
+```bash
+sudo nano /etc/oracle-vps-file-manager.env
+sudo systemctl restart oracle-vps-file-manager
+```
+
+## Useful VPS Commands
+
+Check app status:
+
+```bash
+sudo systemctl status oracle-vps-file-manager
+```
+
+Restart app:
+
+```bash
+sudo systemctl restart oracle-vps-file-manager
+```
+
+View logs:
+
+```bash
+journalctl -u oracle-vps-file-manager -f
+```
+
+Restart Nginx:
+
+```bash
+sudo systemctl restart nginx
+```
+
+## Domain Later
+
+If you later buy a domain:
+
+1. Point an `A` record to `144.24.158.211`.
+2. Copy `deploy/nginx-domain.conf` to Nginx.
+3. Replace `files.example.com` with your domain.
+4. Install HTTPS with Certbot.
+
+## Features
+
+- Login-protected web UI
+- Browse files and folders
+- Search inside the current folder
+- Upload files
+- Download files
+- Create folders
+- Create and edit text files
+- Rename files and folders
+- Delete files and folders
+- Configurable protected file root
+- Nginx reverse proxy config
+- Systemd service config
+
+## Android Mirror Helper
+
+This folder also includes a Windows helper script for mirroring and controlling an Android phone from the PC:
+
+```powershell
+.\start-phone-mirror.ps1
+```
+
+There is also a click-based launcher:
+
+```text
+Open Phone Mirror.cmd
+```
+
+What it does:
+
+- Uses the installed `adb`
+- Checks whether `scrcpy` is installed
+- Verifies that your phone is connected and ready
+- Starts screen mirror, PC control, and clipboard sync
+
+Optional extras:
+
+- `-ScreenOffWhileConnected` turns the phone screen off during mirroring and tries to turn it back on automatically when the session ends
+- `-Rotate Normal|Right|UpsideDown|Left` rotates the mirrored view on the PC
+
+Wireless mode is also supported. For first-time setup, connect the phone with USB, keep it unlocked, and run:
+
+```powershell
+.\start-phone-mirror.ps1 -Wireless
+```
+
+After that, as long as the phone and PC are on the same Wi-Fi network, the script will try to connect over wireless ADB and start mirroring.
+
+If your phone supports Wireless debugging pairing, you can also connect without USB:
+
+```powershell
+.\start-phone-mirror.ps1 -PairWireless
+```
+
+The script will ask for the phone IP address, the pairing port, the pairing code, and if needed the wireless debugging address shown on the phone.
+
+Examples:
+
+```powershell
+.\start-phone-mirror.ps1 -ScreenOffWhileConnected
+.\start-phone-mirror.ps1 -Wireless -Rotate Right
+.\start-phone-mirror.ps1 -PairWireless -ScreenOffWhileConnected -Rotate Left
+```
+
+The UI window gives you:
+
+- `USB Mirror`
+- `Wi-Fi Mirror`
+- `Pair Over Wi-Fi`
+- saved device list for reconnecting without typing everything again
+- checkbox for temporary screen-off while connected
+- rotation picker
+- boxes for IP, wireless port, pairing port, and pairing code
+
+After the first successful connection, device details are stored in:
+
+```text
+phone-mirror-devices.json
+```
+
+Connection history is stored in:
+
+```text
+phone-mirror.log
+```
+
+If `scrcpy` is missing, install it first:
+
+```powershell
+choco install scrcpy -y
+```
