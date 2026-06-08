@@ -179,16 +179,22 @@ If you later buy a domain:
 
 ## Android Mirror Helper
 
-This folder also includes a Windows helper script for mirroring and controlling an Android phone from the PC:
+The Android mirror helper has been moved out of the main project root into:
+
+```text
+tools/phone-mirror
+```
+
+Use this Windows helper script for mirroring and controlling an Android phone from the PC:
 
 ```powershell
-.\start-phone-mirror.ps1
+.\tools\phone-mirror\start-phone-mirror.ps1
 ```
 
 There is also a click-based launcher:
 
 ```text
-Open Phone Mirror.cmd
+tools\phone-mirror\Open Phone Mirror.cmd
 ```
 
 What it does:
@@ -206,7 +212,7 @@ Optional extras:
 Wireless mode is also supported. For first-time setup, connect the phone with USB, keep it unlocked, and run:
 
 ```powershell
-.\start-phone-mirror.ps1 -Wireless
+.\tools\phone-mirror\start-phone-mirror.ps1 -Wireless
 ```
 
 After that, as long as the phone and PC are on the same Wi-Fi network, the script will try to connect over wireless ADB and start mirroring.
@@ -214,7 +220,7 @@ After that, as long as the phone and PC are on the same Wi-Fi network, the scrip
 If your phone supports Wireless debugging pairing, you can also connect without USB:
 
 ```powershell
-.\start-phone-mirror.ps1 -PairWireless
+.\tools\phone-mirror\start-phone-mirror.ps1 -PairWireless
 ```
 
 The script will ask for the phone IP address, the pairing port, the pairing code, and if needed the wireless debugging address shown on the phone.
@@ -222,9 +228,9 @@ The script will ask for the phone IP address, the pairing port, the pairing code
 Examples:
 
 ```powershell
-.\start-phone-mirror.ps1 -ScreenOffWhileConnected
-.\start-phone-mirror.ps1 -Wireless -Rotate Right
-.\start-phone-mirror.ps1 -PairWireless -ScreenOffWhileConnected -Rotate Left
+.\tools\phone-mirror\start-phone-mirror.ps1 -ScreenOffWhileConnected
+.\tools\phone-mirror\start-phone-mirror.ps1 -Wireless -Rotate Right
+.\tools\phone-mirror\start-phone-mirror.ps1 -PairWireless -ScreenOffWhileConnected -Rotate Left
 ```
 
 The UI window gives you:
@@ -240,13 +246,13 @@ The UI window gives you:
 After the first successful connection, device details are stored in:
 
 ```text
-phone-mirror-devices.json
+tools\phone-mirror\phone-mirror-devices.json
 ```
 
 Connection history is stored in:
 
 ```text
-phone-mirror.log
+tools\phone-mirror\phone-mirror.log
 ```
 
 If `scrcpy` is missing, install it first:

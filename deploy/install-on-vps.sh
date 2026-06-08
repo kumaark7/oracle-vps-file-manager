@@ -44,7 +44,9 @@ fi
 
 mkdir -p "$APP_DIR"
 rsync -a --delete \
+  --exclude android \
   --exclude node_modules \
+  --exclude tools \
   --exclude .git \
   --exclude dist \
   "${SOURCE_DIR}/" "$APP_DIR/"

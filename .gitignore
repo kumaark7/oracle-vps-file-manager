@@ -6,3 +6,4 @@ dist
 .ovfm-comments.json
 bulk-smoke-*
 details-smoke-*.txt
+tools/phone-mirror/phone-mirror-devices.json
