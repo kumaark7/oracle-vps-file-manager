@@ -50,6 +50,29 @@ button {
   border-color: #6ee7b7;
 }
 
+.server-select {
+  display: flex;
+  min-width: 220px;
+  flex-direction: column;
+  gap: 0.35rem;
+  border-radius: 0.75rem;
+  border: 1px solid #1e293b;
+  background: #0f172a;
+  padding: 0.55rem 0.7rem;
+}
+
+.server-select__label {
+  font-size: 0.75rem;
+  color: #64748b;
+}
+
+.server-select__input {
+  height: 2.2rem;
+  border-color: #334155;
+  background: #020617;
+  padding-right: 2rem;
+}
+
 .icon-button {
   display: inline-flex;
   width: 2.5rem;

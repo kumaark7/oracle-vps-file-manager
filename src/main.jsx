@@ -96,8 +96,24 @@ async function api(path, options = {}) {
   return payload;
 }
 
+function apiPath(pathname, serverId, extraParams = {}) {
+  const url = new URL(pathname, window.location.origin);
+  if (serverId) url.searchParams.set("serverId", serverId);
+
+  for (const [key, value] of Object.entries(extraParams)) {
+    if (value !== undefined && value !== null && value !== "") {
+      url.searchParams.set(key, value);
+    }
+  }
+
+  return `${url.pathname}${url.search}`;
+}
+
 function App() {
-  const [session, setSession] = useState({ loading: true, authenticated: false, passwordConfigured: true, fileRoot: "" });
+  const [session, setSession] = useState({ loading: true, authenticated: false, passwordConfigured: true, username: "", defaultServerId: "local" });
+  const [servers, setServers] = useState([]);
+  const [currentServerId, setCurrentServerId] = useState("local");
+  const [currentRoot, setCurrentRoot] = useState("");
   const [activeView, setActiveView] = useState("files");
   const [currentPath, setCurrentPath] = useState("/");
   const [entries, setEntries] = useState([]);
@@ -128,6 +144,10 @@ function App() {
   }, [entries, query]);
 
   const allVisibleSelected = visibleEntries.length > 0 && visibleEntries.every((entry) => selectedPaths.includes(entry.path));
+  const currentServer = useMemo(
+    () => servers.find((server) => server.id === currentServerId) || servers[0] || null,
+    [servers, currentServerId]
+  );
 
   useEffect(() => {
     refreshSession();
@@ -142,15 +162,34 @@ function App() {
   }, []);
 
   useEffect(() => {
-    if (session.authenticated) loadFiles("/");
+    if (session.authenticated) {
+      loadServers();
+    }
   }, [session.authenticated]);
+
+  useEffect(() => {
+    if (session.authenticated && currentServerId) {
+      loadFiles("/");
+    }
+  }, [session.authenticated, currentServerId]);
 
   async function refreshSession() {
     try {
       const data = await api("/api/session");
       setSession({ loading: false, ...data });
+      setCurrentServerId(data.defaultServerId || "local");
     } catch (error) {
       setSession((current) => ({ ...current, loading: false }));
+      setMessage(error.message);
+    }
+  }
+
+  async function loadServers() {
+    try {
+      const data = await api("/api/servers");
+      setServers(data.servers || []);
+      setCurrentServerId((current) => (data.servers?.some((server) => server.id === current) ? current : data.defaultServerId || data.servers?.[0]?.id || "local"));
+    } catch (error) {
       setMessage(error.message);
     }
   }
@@ -160,12 +199,14 @@ function App() {
       method: "POST",
       body: JSON.stringify({ username, password })
     });
-    setSession({ loading: false, authenticated: true, username: data.username, fileRoot: data.fileRoot, passwordConfigured: true });
+    setSession({ loading: false, authenticated: true, username: data.username, passwordConfigured: true, defaultServerId: "local" });
   }
 
   async function logout() {
     await api("/api/logout", { method: "POST", body: "{}" });
     setEntries([]);
+    setServers([]);
+    setCurrentRoot("");
     setActiveView("files");
     setSession((current) => ({ ...current, authenticated: false }));
   }
@@ -178,10 +219,10 @@ function App() {
     setActiveView("files");
 
     try {
-      const data = await api(`/api/files?path=${encodeURIComponent(path)}`);
+      const data = await api(apiPath("/api/files", currentServerId, { path }));
       setEntries(data.entries);
       setCurrentPath(data.path);
-      setSession((current) => ({ ...current, fileRoot: data.root || current.fileRoot }));
+      setCurrentRoot(data.root || "");
       setStatus("ready");
     } catch (error) {
       setStatus("error");
@@ -195,7 +236,7 @@ function App() {
     setMessage("");
 
     try {
-      const data = await api("/api/storage");
+      const data = await api(apiPath("/api/storage", currentServerId));
       setStorage(data);
       setActiveView("storage");
       setStatus("ready");
@@ -205,6 +246,16 @@ function App() {
     }
   }
 
+  function switchServer(serverId) {
+    setCurrentServerId(serverId);
+    setClipboard(null);
+    setSelected(null);
+    setSelectedPaths([]);
+    setStorage(null);
+    setCurrentPath("/");
+    setMessage("");
+  }
+
   async function runAction(action, body, successText) {
     setStatus("working");
     setMessage("");
@@ -212,7 +263,7 @@ function App() {
     try {
       await api(`/api/${action}`, {
         method: "POST",
-        body: JSON.stringify(body)
+        body: JSON.stringify({ ...body, serverId: currentServerId })
       });
       setDialog(null);
       setMenuFor(null);
@@ -266,6 +317,7 @@ function App() {
         await api("/api/upload", {
           method: "POST",
           body: JSON.stringify({
+            serverId: currentServerId,
             path: joinPath(currentPath, relativePath),
             content: encodeBinaryBase64(await file.arrayBuffer())
           })
@@ -287,7 +339,7 @@ function App() {
     setMessage("");
 
     try {
-      const data = await api(`/api/download?path=${encodeURIComponent(entry.path)}`);
+      const data = await api(apiPath("/api/download", currentServerId, { path: entry.path }));
       const bytes = Uint8Array.from(atob(data.content), (char) => char.charCodeAt(0));
       const blob = new Blob([bytes], { type: "application/octet-stream" });
       const url = URL.createObjectURL(blob);
@@ -318,6 +370,7 @@ function App() {
   }
 
   const busy = status === "loading" || status === "working";
+  const serverBadge = currentServer?.kind === "local" ? "Hosted here" : "Remote over SSH";
 
   return (
     <main className="min-h-screen bg-slate-950 text-slate-100">
@@ -328,15 +381,25 @@ function App() {
               <HardDrive size={23} />
             </div>
             <div>
-              <p className="text-sm text-slate-400">Oracle VPS</p>
+              <p className="text-sm text-slate-400">{serverBadge}</p>
               <h1 className="text-2xl font-bold tracking-normal">File Manager</h1>
             </div>
           </div>
 
           <div className="flex flex-wrap items-center gap-2">
+            <label className="server-select">
+              <span className="server-select__label">Server</span>
+              <select className="control server-select__input" value={currentServerId} onChange={(event) => switchServer(event.target.value)}>
+                {servers.map((server) => (
+                  <option key={server.id} value={server.id}>
+                    {server.name}
+                  </option>
+                ))}
+              </select>
+            </label>
             <div className="rounded-lg border border-slate-800 bg-slate-900 px-3 py-2">
               <p className="text-xs text-slate-500">Protected root</p>
-              <p className="max-w-[360px] truncate font-mono text-xs text-slate-300">{session.fileRoot}</p>
+              <p className="max-w-[360px] truncate font-mono text-xs text-slate-300">{currentRoot || currentServer?.rootPath || "-"}</p>
             </div>
             <button className="icon-button" type="button" aria-label="Log out" title="Log out" onClick={logout}>
               <LogOut size={18} />
@@ -348,12 +411,24 @@ function App() {
           <aside className="space-y-4">
             <div className="rounded-lg border border-slate-800 bg-slate-900 p-4">
               <div className="flex items-center gap-2 text-sm font-semibold text-slate-200">
-                <ShieldCheck size={17} className="text-emerald-300" />
-                Hosted on the VPS
+                <Server size={17} className="text-emerald-300" />
+                {currentServer?.name || "Server"}
               </div>
               <p className="mt-2 text-sm leading-6 text-slate-400">
-                This server reads files directly from the configured root. No private SSH key is needed on the VPS.
+                {currentServer?.description || "This server is ready for file management."}
               </p>
+              <div className="mt-3 grid gap-2 text-xs text-slate-400">
+                <div className="rounded-md bg-slate-950/70 px-3 py-2">
+                  <span className="text-slate-500">Host</span>
+                  <p className="truncate font-mono text-slate-200">{currentServer?.host || "-"}</p>
+                </div>
+                <div className="rounded-md bg-slate-950/70 px-3 py-2">
+                  <span className="text-slate-500">Login</span>
+                  <p className="truncate font-mono text-slate-200">
+                    {currentServer?.username || "-"}:{currentServer?.port || 22}
+                  </p>
+                </div>
+              </div>
             </div>
 
             <div className="grid grid-cols-3 gap-2 lg:grid-cols-1">
@@ -386,7 +461,7 @@ function App() {
                 </div>
                 <div className="text-left">
                   <p className="text-sm font-semibold text-slate-100">Storage</p>
-                  <p className="text-xs text-slate-400">Projects, images, videos, documents</p>
+                  <p className="text-xs text-slate-400">Projects, images, videos, documents for {currentServer?.name || "this server"}</p>
                 </div>
               </div>
               <Smartphone className="text-slate-400" size={18} />
@@ -398,7 +473,7 @@ function App() {
             <section className="min-w-0 rounded-lg border border-slate-800 bg-slate-900 p-4 sm:p-5">
               <div className="mb-5 flex flex-col gap-3 border-b border-slate-800 pb-4 sm:flex-row sm:items-center sm:justify-between">
                 <div>
-                  <p className="text-sm text-slate-400">Storage</p>
+                  <p className="text-sm text-slate-400">{currentServer?.name || "Storage"}</p>
                   <h2 className="text-2xl font-bold">Project usage dashboard</h2>
                 </div>
                 <div className="flex gap-2">
@@ -503,6 +578,7 @@ function App() {
       {dialog && (
         <FileDialog
           dialog={dialog}
+          currentServerId={currentServerId}
           currentPath={currentPath}
           bulkCount={dialog.paths?.length || 0}
           onClose={() => setDialog(null)}
@@ -717,7 +793,7 @@ function FileRow({ entry, selected, checked, menuOpen, onSelect, onToggleCheck, 
   );
 }
 
-function FileDialog({ dialog, currentPath, bulkCount, onClose, onCreateFolder, onCreateFile, onRename, onDelete, onDeleteBulk, onSaveComment, onSaveFile }) {
+function FileDialog({ dialog, currentServerId, currentPath, bulkCount, onClose, onCreateFolder, onCreateFile, onRename, onDelete, onDeleteBulk, onSaveComment, onSaveFile }) {
   const [name, setName] = useState(dialog.entry?.name || "");
   const [content, setContent] = useState("");
   const [details, setDetails] = useState(null);
@@ -728,11 +804,11 @@ function FileDialog({ dialog, currentPath, bulkCount, onClose, onCreateFolder, o
   useEffect(() => {
     if (dialog.type !== "edit") return;
 
-    api(`/api/read?path=${encodeURIComponent(dialog.entry.path)}`)
+    api(apiPath("/api/read", currentServerId, { path: dialog.entry.path }))
       .then((data) => setContent(decodeTextBase64(data.content)))
       .catch((readError) => setError(readError.message))
       .finally(() => setLoading(false));
-  }, [dialog]);
+  }, [dialog, currentServerId]);
 
   useEffect(() => {
     if (dialog.type !== "info") return;
@@ -741,14 +817,14 @@ function FileDialog({ dialog, currentPath, bulkCount, onClose, onCreateFolder, o
     setError("");
     setDetails(null);
 
-    api(`/api/details?path=${encodeURIComponent(dialog.entry.path)}`)
+    api(apiPath("/api/details", currentServerId, { path: dialog.entry.path }))
       .then((data) => {
         setDetails(data);
         setComment(data.comment || "");
       })
       .catch((detailsError) => setError(detailsError.message))
       .finally(() => setLoading(false));
-  }, [dialog]);
+  }, [dialog, currentServerId]);
 
   const titles = {
     folder: "New folder",
