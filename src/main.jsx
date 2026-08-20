@@ -128,6 +128,7 @@ function App() {
   const [dialog, setDialog] = useState(null);
   const fileInputRef = useRef(null);
   const folderInputRef = useRef(null);
+  const appShellRef = useRef(null);
 
   const folders = entries.filter((entry) => entry.type === "directory").length;
   const files = entries.length - folders;
@@ -173,6 +174,16 @@ function App() {
     }
   }, [session.authenticated, currentServerId]);
 
+  useEffect(() => {
+    function handlePointerDown(event) {
+      if (!menuFor) return;
+      if (event.target.closest("[data-menu-root]")) return;
+      setMenuFor(null);
+    }
+
+    document.addEventListener("pointerdown", handlePointerDown);
+    return () => document.removeEventListener("pointerdown", handlePointerDown);
+  }, [menuFor]);
   async function refreshSession() {
     try {
       const data = await api("/api/session");
@@ -373,9 +384,9 @@ function App() {
   const serverBadge = currentServer?.kind === "local" ? "Hosted here" : "Remote over SSH";
 
   return (
-    <main className="min-h-screen bg-slate-950 text-slate-100">
+    <main ref={appShellRef} className="min-h-screen bg-slate-950 text-slate-100">
       <div className="mx-auto flex min-h-screen max-w-7xl flex-col px-4 py-4 sm:px-6 lg:px-8">
-        <header className="flex flex-col gap-4 border-b border-slate-800 pb-4 lg:flex-row lg:items-center lg:justify-between">
+        <header className="header-stack border-b border-slate-800 pb-4">
           <div className="flex items-center gap-3">
             <div className="flex h-11 w-11 items-center justify-center rounded-lg bg-emerald-400 text-slate-950">
               <HardDrive size={23} />
@@ -386,20 +397,22 @@ function App() {
             </div>
           </div>
 
-          <div className="flex flex-wrap items-center gap-2">
-            <label className="server-select">
-              <span className="server-select__label">Server</span>
-              <select className="control server-select__input" value={currentServerId} onChange={(event) => switchServer(event.target.value)}>
-                {servers.map((server) => (
-                  <option key={server.id} value={server.id}>
-                    {server.name}
-                  </option>
-                ))}
-              </select>
-            </label>
-            <div className="rounded-lg border border-slate-800 bg-slate-900 px-3 py-2">
-              <p className="text-xs text-slate-500">Protected root</p>
-              <p className="max-w-[360px] truncate font-mono text-xs text-slate-300">{currentRoot || currentServer?.rootPath || "-"}</p>
+          <div className="toolbar-shell">
+            <div className="toolbar-cluster">
+              <label className="server-select">
+                <span className="server-select__label">Server</span>
+                <select className="control server-select__input" value={currentServerId} onChange={(event) => switchServer(event.target.value)}>
+                  {servers.map((server) => (
+                    <option key={server.id} value={server.id}>
+                      {server.name}
+                    </option>
+                  ))}
+                </select>
+              </label>
+              <div className="toolbar-chip">
+                <p className="toolbar-chip__label">Protected root</p>
+                <p className="toolbar-chip__value">{currentRoot || currentServer?.rootPath || "-"}</p>
+              </div>
             </div>
             <button className="icon-button" type="button" aria-label="Log out" title="Log out" onClick={logout}>
               <LogOut size={18} />
@@ -518,7 +531,7 @@ function App() {
 
               <PathCrumbs path={currentPath} onOpen={loadFiles} />
 
-              <div className="overflow-x-auto">
+              <div className="file-table-wrap">
                 <table className="w-full min-w-[720px] border-t border-slate-800 text-left">
                   <thead className="bg-slate-950/55 text-xs uppercase tracking-normal text-slate-500">
                     <tr>
@@ -543,13 +556,14 @@ function App() {
                         </td>
                       </tr>
                     ) : visibleEntries.length ? (
-                      visibleEntries.map((entry) => (
+                      visibleEntries.map((entry, index) => (
                         <FileRow
                           key={entry.path}
                           entry={entry}
                           selected={selected?.path === entry.path}
                           checked={selectedPaths.includes(entry.path)}
                           menuOpen={menuFor === entry.path}
+                          menuDirection={index >= visibleEntries.length - 4 ? "up" : "down"}
                           onSelect={() => setSelected(entry)}
                           onToggleCheck={() => toggleSelectedPath(entry.path)}
                           onOpen={() => (entry.type === "directory" ? loadFiles(entry.path) : setDialog({ type: "edit", entry }))}
@@ -708,9 +722,9 @@ function Toolbar({
         </div>
       </div>
 
-      <label className="relative block">
-        <Search className="pointer-events-none absolute left-3 top-1/2 -translate-y-1/2 text-slate-500" size={18} />
-        <input className="control w-full pl-10" placeholder="Search in this folder" value={query} onChange={(event) => setQuery(event.target.value)} />
+      <label className="search-field">
+        <Search className="search-field__icon" size={18} />
+        <input className="control search-field__input w-full" placeholder="Search in this folder" value={query} onChange={(event) => setQuery(event.target.value)} />
       </label>
 
       {(selectedCount > 0 || hasClipboard) && (
@@ -749,7 +763,7 @@ function PathCrumbs({ path, onOpen }) {
   );
 }
 
-function FileRow({ entry, selected, checked, menuOpen, onSelect, onToggleCheck, onOpen, onMenu, onInfo, onRename, onDelete, onDownload }) {
+function FileRow({ entry, selected, checked, menuOpen, menuDirection = "down", onSelect, onToggleCheck, onOpen, onMenu, onInfo, onRename, onDelete, onDownload }) {
   const Icon = entry.type === "directory" ? Folder : File;
 
   return (
@@ -775,12 +789,12 @@ function FileRow({ entry, selected, checked, menuOpen, onSelect, onToggleCheck, 
       <td className="px-4 py-3 text-slate-400">{entry.type === "directory" ? "-" : formatBytes(entry.size)}</td>
       <td className="px-4 py-3 text-slate-400">{entry.modified}</td>
       <td className="px-4 py-3 font-mono text-xs text-slate-500">{entry.mode}</td>
-      <td className="relative px-4 py-3">
+      <td className="relative px-4 py-3" data-menu-root>
         <button className="icon-button" type="button" aria-label="Actions" title="Actions" onClick={(event) => { event.stopPropagation(); onMenu(); }}>
           <MoreVertical size={17} />
         </button>
         {menuOpen && (
-          <div className="absolute right-4 top-11 z-20 w-44 rounded-lg border border-slate-700 bg-slate-950 p-1 shadow-2xl">
+          <div className={`absolute right-4 z-20 w-44 rounded-lg border border-slate-700 bg-slate-950 p-1 shadow-2xl ${menuDirection === "up" ? "bottom-11" : "top-11"}`}>
             <MenuItem icon={Info} label="Info" onClick={onInfo} />
             {entry.type === "file" && <MenuItem icon={Download} label="Download" onClick={onDownload} />}
             {entry.type === "file" && <MenuItem icon={Edit3} label="Edit" onClick={onOpen} />}

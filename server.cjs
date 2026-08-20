@@ -2,13 +2,19 @@ const crypto = require("crypto");
 const fs = require("fs");
 const fsp = require("fs/promises");
 const http = require("http");
+const os = require("os");
 const path = require("path");
 const { spawn } = require("child_process");
 
 const PORT = Number(process.env.PORT || 4174);
 const HOST = process.env.HOST || "127.0.0.1";
 const DIST_DIR = path.join(__dirname, "dist");
-const FILE_ROOT = path.resolve(process.env.FILE_ROOT || process.env.HOME || "/home/ubuntu");
+const DEFAULT_FILE_ROOT =
+  process.env.FILE_ROOT ||
+  process.env.HOME ||
+  process.env.USERPROFILE ||
+  (process.platform === "win32" ? __dirname : "/home/ubuntu");
+const FILE_ROOT = path.resolve(DEFAULT_FILE_ROOT);
 const ADMIN_USER = process.env.ADMIN_USER || "admin";
 const ADMIN_PASSWORD = process.env.ADMIN_PASSWORD || "";
 const SESSION_SECRET = process.env.SESSION_SECRET || crypto.randomBytes(32).toString("hex");
@@ -407,15 +413,17 @@ function normalizeServerId(value) {
 }
 
 function buildLocalServer() {
+  const localUsername = process.env.OVFM_LOCAL_SERVER_USER || process.env.USER || process.env.USERNAME || os.userInfo().username || "user";
+  const isWindowsLocal = process.platform === "win32";
   return {
     id: LOCAL_SERVER_ID,
-    name: process.env.OVFM_LOCAL_SERVER_NAME || "Primary VPS",
+    name: process.env.OVFM_LOCAL_SERVER_NAME || (isWindowsLocal ? "This Computer" : "Primary VPS"),
     kind: "local",
-    host: process.env.OVFM_PUBLIC_HOST || "files.projectdarkhope.xyz",
+    host: process.env.OVFM_PUBLIC_HOST || (isWindowsLocal ? "127.0.0.1" : "files.projectdarkhope.xyz"),
     port: 22,
-    username: process.env.OVFM_LOCAL_SERVER_USER || process.env.USER || "ubuntu",
+    username: localUsername,
     rootPath: FILE_ROOT,
-    description: "Hosted on this VPS"
+    description: isWindowsLocal ? "Hosted locally on this computer" : "Hosted on this VPS"
   };
 }
 
