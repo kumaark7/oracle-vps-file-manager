@@ -17,7 +17,11 @@ Recommended VPS folder:
 Public URL without buying a domain:
 
 ```text
+<<<<<<< HEAD
 http://YOUR_SERVER_IP
+=======
+http://144.24.158.211
+>>>>>>> cf15088 (Sync live VPS code)
 ```
 
 ## Do You Need A Domain?
@@ -37,7 +41,11 @@ No. Do not upload the private key to the VPS.
 The private key is only needed from your computer to log in and upload the project:
 
 ```text
+<<<<<<< HEAD
 D:\path\to\your-key.pem
+=======
+D:\Kishore\ssh-key-2026-06-07.key
+>>>>>>> cf15088 (Sync live VPS code)
 ```
 
 Once this app runs on the VPS, it manages files directly from the VPS filesystem.
@@ -55,7 +63,11 @@ The script connects to your VPS, pulls the latest code from GitHub, rebuilds the
 GitHub repo:
 
 ```text
+<<<<<<< HEAD
 https://github.com/YOUR_GITHUB_USERNAME/oracle-vps-file-manager
+=======
+https://github.com/kumaark7/oracle-vps-file-manager
+>>>>>>> cf15088 (Sync live VPS code)
 ```
 
 The running app is installed into:
@@ -73,7 +85,11 @@ The VPS keeps a source checkout here:
 After install, open:
 
 ```text
+<<<<<<< HEAD
 http://YOUR_SERVER_IP
+=======
+http://144.24.158.211
+>>>>>>> cf15088 (Sync live VPS code)
 ```
 
 The installer prints the generated admin password the first time it runs.
@@ -98,7 +114,11 @@ That is enough for most releases.
 If you ever want to update directly from the VPS terminal instead:
 
 ```bash
+<<<<<<< HEAD
 sudo APP_NAME=oracle-vps-file-manager REPO_URL=https://github.com/YOUR_GITHUB_USERNAME/oracle-vps-file-manager.git BRANCH=main bash /usr/local/src/oracle-vps-file-manager/deploy/install-on-vps.sh
+=======
+sudo APP_NAME=oracle-vps-file-manager REPO_URL=https://github.com/kumaark7/oracle-vps-file-manager.git BRANCH=main bash /usr/local/src/oracle-vps-file-manager/deploy/install-on-vps.sh
+>>>>>>> cf15088 (Sync live VPS code)
 ```
 
 ## Server Settings
@@ -157,7 +177,11 @@ sudo systemctl restart nginx
 
 If you later buy a domain:
 
+<<<<<<< HEAD
 1. Point an `A` record to `YOUR_SERVER_IP`.
+=======
+1. Point an `A` record to `144.24.158.211`.
+>>>>>>> cf15088 (Sync live VPS code)
 2. Copy `deploy/nginx-domain.conf` to Nginx.
 3. Replace `files.example.com` with your domain.
 4. Install HTTPS with Certbot.
@@ -179,6 +203,7 @@ If you later buy a domain:
 
 ## Android Mirror Helper
 
+<<<<<<< HEAD
 The Android mirror helper has been moved out of the main project root into:
 
 ```text
@@ -189,12 +214,22 @@ Use this Windows helper script for mirroring and controlling an Android phone fr
 
 ```powershell
 .\tools\phone-mirror\start-phone-mirror.ps1
+=======
+This folder also includes a Windows helper script for mirroring and controlling an Android phone from the PC:
+
+```powershell
+.\start-phone-mirror.ps1
+>>>>>>> cf15088 (Sync live VPS code)
 ```
 
 There is also a click-based launcher:
 
 ```text
+<<<<<<< HEAD
 tools\phone-mirror\Open Phone Mirror.cmd
+=======
+Open Phone Mirror.cmd
+>>>>>>> cf15088 (Sync live VPS code)
 ```
 
 What it does:
@@ -212,7 +247,11 @@ Optional extras:
 Wireless mode is also supported. For first-time setup, connect the phone with USB, keep it unlocked, and run:
 
 ```powershell
+<<<<<<< HEAD
 .\tools\phone-mirror\start-phone-mirror.ps1 -Wireless
+=======
+.\start-phone-mirror.ps1 -Wireless
+>>>>>>> cf15088 (Sync live VPS code)
 ```
 
 After that, as long as the phone and PC are on the same Wi-Fi network, the script will try to connect over wireless ADB and start mirroring.
@@ -220,7 +259,11 @@ After that, as long as the phone and PC are on the same Wi-Fi network, the scrip
 If your phone supports Wireless debugging pairing, you can also connect without USB:
 
 ```powershell
+<<<<<<< HEAD
 .\tools\phone-mirror\start-phone-mirror.ps1 -PairWireless
+=======
+.\start-phone-mirror.ps1 -PairWireless
+>>>>>>> cf15088 (Sync live VPS code)
 ```
 
 The script will ask for the phone IP address, the pairing port, the pairing code, and if needed the wireless debugging address shown on the phone.
@@ -228,9 +271,15 @@ The script will ask for the phone IP address, the pairing port, the pairing code
 Examples:
 
 ```powershell
+<<<<<<< HEAD
 .\tools\phone-mirror\start-phone-mirror.ps1 -ScreenOffWhileConnected
 .\tools\phone-mirror\start-phone-mirror.ps1 -Wireless -Rotate Right
 .\tools\phone-mirror\start-phone-mirror.ps1 -PairWireless -ScreenOffWhileConnected -Rotate Left
+=======
+.\start-phone-mirror.ps1 -ScreenOffWhileConnected
+.\start-phone-mirror.ps1 -Wireless -Rotate Right
+.\start-phone-mirror.ps1 -PairWireless -ScreenOffWhileConnected -Rotate Left
+>>>>>>> cf15088 (Sync live VPS code)
 ```
 
 The UI window gives you:
@@ -246,13 +295,21 @@ The UI window gives you:
 After the first successful connection, device details are stored in:
 
 ```text
+<<<<<<< HEAD
 tools\phone-mirror\phone-mirror-devices.json
+=======
+phone-mirror-devices.json
+>>>>>>> cf15088 (Sync live VPS code)
 ```
 
 Connection history is stored in:
 
 ```text
+<<<<<<< HEAD
 tools\phone-mirror\phone-mirror.log
+=======
+phone-mirror.log
+>>>>>>> cf15088 (Sync live VPS code)
 ```
 
 If `scrcpy` is missing, install it first:

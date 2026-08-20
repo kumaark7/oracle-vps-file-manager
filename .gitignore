@@ -6,5 +6,8 @@ dist
 .ovfm-comments.json
 bulk-smoke-*
 details-smoke-*.txt
+<<<<<<< HEAD
 tools/phone-mirror/phone-mirror-devices.json
 deploy-to-oracle.local.ps1
+=======
+>>>>>>> cf15088 (Sync live VPS code)
