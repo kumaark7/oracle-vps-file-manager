@@ -853,7 +853,7 @@ function runProcess(filePath, args, input = "") {
 }
 
 function shellQuote(value) {
-  return `'${String(value).replace(/'/g, `'\\"'\\"'`)}'`;
+  return "'" + String(value).replace(/'/g, "'\"'\"'") + "'";
 }
 
 async function runRemoteOperation(server, operation, payload = {}) {
