@@ -35,7 +35,7 @@ Write-Host "Running GitHub-based install/update on the VPS..."
 $sshInstallArgs = @(
   "-i", $KeyPath,
   $Server,
-  "sudo APP_NAME='$ProjectName' REPO_URL='$RepoUrl' BRANCH='$Branch' PUBLIC_URL='$PublicUrl' bash '$RemoteInstallScript' && rm -f '$RemoteInstallScript'"
+  "tr -d '\r' < '$RemoteInstallScript' > '${RemoteInstallScript}.unix' && chmod +x '${RemoteInstallScript}.unix' && sudo APP_NAME='$ProjectName' REPO_URL='$RepoUrl' BRANCH='$Branch' PUBLIC_URL='$PublicUrl' bash '${RemoteInstallScript}.unix' && rm -f '$RemoteInstallScript' '${RemoteInstallScript}.unix'"
 )
 Invoke-Native "ssh" $sshInstallArgs
 
