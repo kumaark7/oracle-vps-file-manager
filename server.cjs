@@ -21,7 +21,7 @@ const SESSION_SECRET = process.env.SESSION_SECRET || crypto.randomBytes(32).toSt
 const SESSION_TTL_MS = 12 * 60 * 60 * 1000;
 const MAX_JSON_BYTES = 150 * 1024 * 1024;
 const MAX_PROCESS_BYTES = 220 * 1024 * 1024;
-const COMMENTS_PATH = path.join(__dirname, ".ovfm-comments.json");
+const COMMENTS_PATH = process.env.OVFM_COMMENTS_PATH || path.join(os.homedir(), ".oracle-vps-file-manager-comments.json");
 const SERVERS_PATH = process.env.OVFM_SERVERS_PATH || path.join(__dirname, ".ovfm-servers.json");
 const LOCAL_SERVER_ID = "local";
 const sessions = new Map();
@@ -545,7 +545,7 @@ async function readComments() {
 }
 
 async function writeComments(comments) {
-  await fsp.writeFile(COMMENTS_PATH, JSON.stringify(comments, null, 2));
+  await fsp.writeFile(COMMENTS_PATH, JSON.stringify(comments, null, 2), { mode: 0o600 });
 }
 
 function commentKey(serverId, remotePath) {

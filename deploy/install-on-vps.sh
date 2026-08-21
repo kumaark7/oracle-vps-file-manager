@@ -2,22 +2,17 @@
 set -euo pipefail
 
 APP_NAME="${APP_NAME:-oracle-vps-file-manager}"
-<<<<<<< HEAD
 REPO_URL="${REPO_URL:?Set REPO_URL to your Git repository URL}"
-=======
-REPO_URL="${REPO_URL:-https://github.com/kumaark7/oracle-vps-file-manager.git}"
->>>>>>> cf15088 (Sync live VPS code)
 BRANCH="${BRANCH:-main}"
 APP_DIR="${APP_DIR:-/opt/${APP_NAME}}"
 SOURCE_DIR="${SOURCE_DIR:-/usr/local/src/${APP_NAME}}"
 ENV_FILE="${ENV_FILE:-/etc/${APP_NAME}.env}"
+SERVERS_FILE="${SERVERS_FILE:-/etc/${APP_NAME}-servers.json}"
 SERVICE_FILE="${SERVICE_FILE:-/etc/systemd/system/${APP_NAME}.service}"
 NGINX_FILE="${NGINX_FILE:-/etc/nginx/sites-available/${APP_NAME}}"
 NGINX_LINK="${NGINX_LINK:-/etc/nginx/sites-enabled/${APP_NAME}}"
-<<<<<<< HEAD
 PUBLIC_URL="${PUBLIC_URL:-http://YOUR_SERVER_IP}"
-=======
->>>>>>> cf15088 (Sync live VPS code)
+PUBLIC_HOST="$(printf '%s' "$PUBLIC_URL" | sed -E 's#^[a-zA-Z]+://##; s#/.*$##')"
 
 if [[ "$(id -u)" -ne 0 ]]; then
   echo "Run this script with sudo."
@@ -52,13 +47,9 @@ fi
 
 mkdir -p "$APP_DIR"
 rsync -a --delete \
-<<<<<<< HEAD
   --exclude android \
   --exclude node_modules \
   --exclude tools \
-=======
-  --exclude node_modules \
->>>>>>> cf15088 (Sync live VPS code)
   --exclude .git \
   --exclude dist \
   "${SOURCE_DIR}/" "$APP_DIR/"
@@ -77,6 +68,7 @@ FILE_ROOT=/home/ubuntu
 ADMIN_USER=admin
 ADMIN_PASSWORD=${ADMIN_PASSWORD}
 SESSION_SECRET=${SESSION_SECRET}
+OVFM_SERVERS_PATH=${SERVERS_FILE}
 EOF
   chmod 600 "$ENV_FILE"
   echo "Created $ENV_FILE"
@@ -86,8 +78,52 @@ else
   echo "Using existing $ENV_FILE"
 fi
 
+# Keep the server list outside the source checkout so SSH keys and host settings
+# survive application deployments.
+if ! grep -q '^OVFM_SERVERS_PATH=' "$ENV_FILE"; then
+  printf '\nOVFM_SERVERS_PATH=%s\n' "$SERVERS_FILE" >> "$ENV_FILE"
+  chmod 600 "$ENV_FILE"
+  echo "Configured server list path: $SERVERS_FILE"
+fi
+
 cp "$APP_DIR/deploy/${APP_NAME}.service" "$SERVICE_FILE"
-cp "$APP_DIR/deploy/nginx-ip.conf" "$NGINX_FILE"
+
+if [[ -n "$PUBLIC_HOST" && ! "$PUBLIC_HOST" =~ ^[0-9.]+$ ]] && [[ -f "/etc/letsencrypt/live/${PUBLIC_HOST}/fullchain.pem" ]] && [[ -f "/etc/letsencrypt/live/${PUBLIC_HOST}/privkey.pem" ]]; then
+  cat > "$NGINX_FILE" <<EOF
+server {
+    listen 80;
+    listen [::]:80;
+    server_name ${PUBLIC_HOST};
+
+    return 301 https://\$host\$request_uri;
+}
+
+server {
+    listen 443 ssl;
+    listen [::]:443 ssl;
+    server_name ${PUBLIC_HOST};
+
+    client_max_body_size 150M;
+
+    ssl_certificate /etc/letsencrypt/live/${PUBLIC_HOST}/fullchain.pem;
+    ssl_certificate_key /etc/letsencrypt/live/${PUBLIC_HOST}/privkey.pem;
+    include /etc/letsencrypt/options-ssl-nginx.conf;
+    ssl_dhparam /etc/letsencrypt/ssl-dhparams.pem;
+
+    location / {
+        proxy_pass http://127.0.0.1:4174;
+        proxy_http_version 1.1;
+        proxy_set_header Host \$host;
+        proxy_set_header X-Real-IP \$remote_addr;
+        proxy_set_header X-Forwarded-For \$proxy_add_x_forwarded_for;
+        proxy_set_header X-Forwarded-Proto \$scheme;
+    }
+}
+EOF
+else
+  cp "$APP_DIR/deploy/nginx-ip.conf" "$NGINX_FILE"
+fi
+
 ln -sfn "$NGINX_FILE" "$NGINX_LINK"
 rm -f /etc/nginx/sites-enabled/default
 
@@ -100,10 +136,6 @@ systemctl restart nginx
 
 echo
 echo "Installed ${APP_NAME}"
-<<<<<<< HEAD
 echo "Open: ${PUBLIC_URL}"
-=======
-echo "Open: http://144.24.158.211"
->>>>>>> cf15088 (Sync live VPS code)
 echo "Settings: ${ENV_FILE}"
 echo "Source checkout: ${SOURCE_DIR}"

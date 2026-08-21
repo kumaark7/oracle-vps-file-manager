@@ -30,17 +30,18 @@ A domain is optional. Buy one only if you want a cleaner address such as:
 https://files.yourdomain.com
 ```
 
-## Do You Need The Private Key On The VPS?
+## SSH Keys And Remote Servers
 
-No. Do not upload the private key to the VPS.
+Your Windows SSH key is only for connecting to the Primary VPS to deploy or administer it. Do not commit it, upload it to GitHub, or expose it in the browser.
 
-The private key is only needed from your computer to log in and upload the project:
+To manage a second server from this file manager, its own private key must be stored only on the Primary VPS, with owner-only access:
 
-```text
-D:\path\to\your-key.pem
+```bash
+sudo install -d -m 700 /home/ubuntu/.ssh
+sudo install -m 600 -o ubuntu -g ubuntu /tmp/second-server.key /home/ubuntu/.ssh/second-server.key
 ```
 
-Once this app runs on the VPS, it manages files directly from the VPS filesystem.
+Never put a remote-server private key in this repository or upload it through the public file-manager UI.
 
 ## Deploy From Windows
 
@@ -118,12 +119,49 @@ FILE_ROOT=/home/ubuntu
 ADMIN_USER=admin
 ADMIN_PASSWORD=generated-during-install
 SESSION_SECRET=generated-during-install
+OVFM_SERVERS_PATH=/etc/oracle-vps-file-manager-servers.json
 ```
 
 To change the file root or password:
 
 ```bash
 sudo nano /etc/oracle-vps-file-manager.env
+sudo systemctl restart oracle-vps-file-manager
+```
+
+## Manage Multiple Servers
+
+The Primary VPS is always available. Additional SSH servers are defined outside the repository at:
+
+```text
+/etc/oracle-vps-file-manager-servers.json
+```
+
+Example configuration:
+
+```json
+{
+  "servers": [
+    {
+      "id": "second-server",
+      "name": "Second Server",
+      "kind": "ssh",
+      "host": "SERVER_PUBLIC_IP",
+      "port": 22,
+      "username": "ubuntu",
+      "rootPath": "/home/ubuntu",
+      "keyPath": "/home/ubuntu/.ssh/second-server.key",
+      "description": "Remote Ubuntu server managed over SSH"
+    }
+  ]
+}
+```
+
+Keep this file owned by the service user and restart the app after changing it:
+
+```bash
+sudo chown ubuntu:ubuntu /etc/oracle-vps-file-manager-servers.json
+sudo chmod 600 /etc/oracle-vps-file-manager-servers.json
 sudo systemctl restart oracle-vps-file-manager
 ```
 
@@ -174,6 +212,10 @@ If you later buy a domain:
 - Rename files and folders
 - Delete files and folders
 - Configurable protected file root
+- Manage the Primary VPS and additional SSH servers from one server selector
+- Bulk copy, move, and delete on the selected server
+- File details and private comments
+- Storage dashboard for the selected server
 - Nginx reverse proxy config
 - Systemd service config
 
