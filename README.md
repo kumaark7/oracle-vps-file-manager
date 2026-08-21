@@ -65,6 +65,17 @@ The running app is installed into:
 /opt/oracle-vps-file-manager
 ```
 
+## Run Locally
+
+Set a local-only password in PowerShell, then start the manager:
+
+```powershell
+$env:ADMIN_PASSWORD = "choose-a-local-password"
+.\start-manager.ps1
+```
+
+The password stays in that PowerShell session and is not saved to the repository.
+
 The VPS keeps a source checkout here:
 
 ```text
