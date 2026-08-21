@@ -1007,7 +1007,8 @@ async function handleApi(req, res) {
       return;
     }
 
-    const server = await getServer(getServerId(requestUrl));
+    const body = req.method === "POST" ? await readBody(req) : {};
+    const server = await getServer(getServerId(requestUrl, body));
 
     if (req.method === "GET" && requestUrl.pathname === "/api/files") {
       sendJson(res, 200, await listFiles(server, requestUrl.searchParams.get("path") || "/"));
@@ -1028,8 +1029,6 @@ async function handleApi(req, res) {
       sendJson(res, 200, await readFileContent(server, requestUrl.searchParams.get("path")));
       return;
     }
-
-    const body = await readBody(req);
 
     if (req.method === "POST" && requestUrl.pathname === "/api/mkdir") {
       await mkdir(server, body.path);
