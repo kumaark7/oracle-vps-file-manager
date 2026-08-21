@@ -3,7 +3,7 @@ $ErrorActionPreference = "Stop"
 node ".\node_modules\vite\bin\vite.js" build --configLoader runner
 
 if (-not $env:ADMIN_PASSWORD) {
-  $env:ADMIN_PASSWORD = "local-preview-password"
+  throw "Set ADMIN_PASSWORD before starting the local preview."
 }
 
 if (-not $env:ADMIN_USER) {

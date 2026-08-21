@@ -1,14 +1,14 @@
 {
   "servers": [
     {
-      "id": "dark",
-      "name": "Dark Server",
+      "id": "remote-server",
+      "name": "Remote Server",
       "kind": "ssh",
-      "host": "129.225.124.5",
+      "host": "SERVER_PUBLIC_IP",
       "port": 22,
       "username": "ubuntu",
       "rootPath": "/home/ubuntu",
-      "keyPath": "/home/ubuntu/.ssh/dark-server.key",
+      "keyPath": "/home/ubuntu/.ssh/remote-server.key",
       "description": "Remote Ubuntu server managed over SSH"
     }
   ]

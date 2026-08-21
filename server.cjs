@@ -419,7 +419,7 @@ function buildLocalServer() {
     id: LOCAL_SERVER_ID,
     name: process.env.OVFM_LOCAL_SERVER_NAME || (isWindowsLocal ? "This Computer" : "Primary VPS"),
     kind: "local",
-    host: process.env.OVFM_PUBLIC_HOST || (isWindowsLocal ? "127.0.0.1" : "files.projectdarkhope.xyz"),
+    host: process.env.OVFM_PUBLIC_HOST || (isWindowsLocal ? "127.0.0.1" : "localhost"),
     port: 22,
     username: localUsername,
     rootPath: FILE_ROOT,
