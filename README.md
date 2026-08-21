@@ -1,154 +1,78 @@
 # Oracle VPS File Manager
 
-A self-hosted file manager for your Oracle VPS.
+A lightweight, self-hosted React and Node.js file manager for one local VPS and additional Ubuntu servers over OpenSSH. It supports browsing, streamed uploads and downloads, text editing, bulk actions, comments, and storage summaries without a database or server-management console.
 
-Project name:
-
-```text
-oracle-vps-file-manager
-```
-
-Recommended VPS folder:
+## Project Structure
 
 ```text
-/opt/oracle-vps-file-manager
+src/
+  api/                 Browser API client and streaming helpers
+  components/          Shared application UI
+  features/files/      File browser, rows, dialogs, and path helpers
+  features/storage/    Storage usage view
+  hooks/               Session and server discovery hooks
+  App.jsx              Application state and feature orchestration
+  main.jsx             React mount only
+server/
+  adapters/            Shared local and OpenSSH adapter interface
+  remote/file-agent.py Remote filesystem agent executed through SSH
+  routes/              Auth, files, and storage HTTP routes
+  services/            Comments, file normalization, and storage scanning
+  auth.cjs             Signed sessions and secure cookies
+  config.cjs           Validated environment configuration
+  servers.cjs          Local and remote server configuration
+  index.cjs            HTTP server and static file serving
+deploy/                systemd, Nginx, environment, and installer files
+android/               Optional Android WebView wrapper
+public/                PWA manifest, service worker, and icons
 ```
 
-Public URL without buying a domain:
+`server.cjs` remains as a compatibility entry point. New startup commands use `server/index.cjs`.
 
-```text
-http://YOUR_SERVER_IP
-```
+## Local Development
 
-## Do You Need A Domain?
-
-No. You can host this directly on your Oracle VPS public IP.
-
-A domain is optional. Buy one only if you want a cleaner address such as:
-
-```text
-https://files.yourdomain.com
-```
-
-## SSH Keys And Remote Servers
-
-Your Windows SSH key is only for connecting to the Primary VPS to deploy or administer it. Do not commit it, upload it to GitHub, or expose it in the browser.
-
-To manage a second server from this file manager, its own private key must be stored only on the Primary VPS, with owner-only access:
-
-```bash
-sudo install -d -m 700 /home/ubuntu/.ssh
-sudo install -m 600 -o ubuntu -g ubuntu /tmp/second-server.key /home/ubuntu/.ssh/second-server.key
-```
-
-Never put a remote-server private key in this repository or upload it through the public file-manager UI.
-
-## Deploy From Windows
-
-From this project folder on your PC:
+Install dependencies and build the frontend:
 
 ```powershell
-.\deploy-to-oracle.ps1
+npm ci
+npm run build
 ```
 
-The script connects to your VPS, pulls the latest code from GitHub, rebuilds the app, and restarts the running service.
-
-GitHub repo:
-
-```text
-https://github.com/YOUR_GITHUB_USERNAME/oracle-vps-file-manager
-```
-
-The running app is installed into:
-
-```text
-/opt/oracle-vps-file-manager
-```
-
-## Run Locally
-
-Set a local-only password in PowerShell, then start the manager:
+Start the complete file manager with a password that exists only in the current PowerShell session:
 
 ```powershell
 $env:ADMIN_PASSWORD = "choose-a-local-password"
 .\start-manager.ps1
 ```
 
-The password stays in that PowerShell session and is not saved to the repository.
+Open `http://127.0.0.1:4174`. By default, local development protects the project directory as its file root. Set `$env:FILE_ROOT` before startup to use another directory.
 
-The VPS keeps a source checkout here:
+For frontend-only development, run `npm run dev`. API features still require the Node backend.
 
-```text
-/usr/local/src/oracle-vps-file-manager
-```
+## Configuration
 
-After install, open:
+Production settings live outside the repository, normally at `/etc/oracle-vps-file-manager.env`:
 
-```text
-http://YOUR_SERVER_IP
-```
-
-The installer prints the generated admin password the first time it runs.
-
-If the page does not open, allow inbound TCP port `80` in your Oracle Cloud instance security list or network security group.
-
-Important: using only the IP address usually means plain HTTP. For the safest public setup, add a domain later and enable HTTPS with Certbot.
-
-## Update Flow
-
-For normal future updates:
-
-1. Commit and push your latest changes to GitHub.
-2. Run the deploy script from Windows:
-
-```powershell
-.\deploy-to-oracle.ps1
-```
-
-That is enough for most releases.
-
-If you ever want to update directly from the VPS terminal instead:
-
-```bash
-sudo APP_NAME=oracle-vps-file-manager REPO_URL=https://github.com/YOUR_GITHUB_USERNAME/oracle-vps-file-manager.git BRANCH=main bash /usr/local/src/oracle-vps-file-manager/deploy/install-on-vps.sh
-```
-
-## Server Settings
-
-After installation, settings live here:
-
-```text
-/etc/oracle-vps-file-manager.env
-```
-
-Default settings:
-
-```text
+```dotenv
 PORT=4174
 HOST=127.0.0.1
 FILE_ROOT=/home/ubuntu
 ADMIN_USER=admin
-ADMIN_PASSWORD=generated-during-install
-SESSION_SECRET=generated-during-install
+ADMIN_PASSWORD=change-this-long-password
+SESSION_SECRET=change-this-random-value-with-at-least-32-characters
 OVFM_SERVERS_PATH=/etc/oracle-vps-file-manager-servers.json
+OVFM_COMMENTS_PATH=/home/ubuntu/.oracle-vps-file-manager-comments.json
+OVFM_PUBLIC_HOST=files.example.com
+TRUST_PROXY=true
+MAX_UPLOAD_BYTES=157286400
+MAX_EDIT_BYTES=5242880
 ```
 
-To change the file root or password:
+`SESSION_TTL_MS`, `MAX_JSON_BYTES`, and `MAX_PROCESS_BYTES` are also configurable. Invalid numeric or boolean values fail during startup with a clear error.
 
-```bash
-sudo nano /etc/oracle-vps-file-manager.env
-sudo systemctl restart oracle-vps-file-manager
-```
+## Remote Servers
 
-## Manage Multiple Servers
-
-The Primary VPS is always available. Additional SSH servers are defined outside the repository at:
-
-```text
-/etc/oracle-vps-file-manager-servers.json
-```
-
-Example configuration:
+Additional servers are configured outside the repository. Keep their keys on the Primary VPS, never in GitHub or browser-accessible folders.
 
 ```json
 {
@@ -168,66 +92,79 @@ Example configuration:
 }
 ```
 
-Keep this file owned by the service user and restart the app after changing it:
+Secure the files for the service user:
 
 ```bash
 sudo chown ubuntu:ubuntu /etc/oracle-vps-file-manager-servers.json
 sudo chmod 600 /etc/oracle-vps-file-manager-servers.json
-sudo systemctl restart oracle-vps-file-manager
+sudo install -d -m 700 -o ubuntu -g ubuntu /home/ubuntu/.ssh
+sudo chmod 600 /home/ubuntu/.ssh/second-server.key
 ```
 
-## Useful VPS Commands
+The browser receives server labels, hosts, ports, usernames, and protected roots. It never receives `keyPath` or private-key content.
 
-Check app status:
+## Uploads And Downloads
+
+Uploads use raw request bodies and are written as streams. Downloads stream directly from the selected local or SSH server to the browser. Files are no longer Base64-encoded into JSON for transfer.
+
+Browser text editing is intentionally bounded by `MAX_EDIT_BYTES` because an editor must hold the text in memory. Uploads are bounded separately by `MAX_UPLOAD_BYTES`. Folder upload sends each contained file as an individual streamed request while preserving its relative path.
+
+## Security Model
+
+- A single administrator username and password protect the API.
+- Session IDs are random, HMAC-signed, expire, and are compared with timing-safe checks.
+- Cookies use `HttpOnly` and `SameSite=Strict`.
+- Cookies also use `Secure` when HTTPS is detected directly or through a trusted local Nginx proxy.
+- State-changing browser requests are restricted to the same origin.
+- Every local and remote path is restricted to its configured root.
+- Root deletion is refused and symbolic links are not followed by storage scans.
+- SSH uses the system OpenSSH client with key authentication, `BatchMode`, a connection timeout, and configurable host, port, username, and root.
+
+`TRUST_PROXY=true` trusts `X-Forwarded-Proto` only when the direct connection comes from loopback. The supplied Nginx configurations set that header. Set `TRUST_PROXY=false` if Node is directly exposed without a local reverse proxy.
+
+## Production Startup
+
+The systemd service runs:
 
 ```bash
+/usr/bin/node /opt/oracle-vps-file-manager/server/index.cjs
+```
+
+Useful commands:
+
+```bash
+sudo systemctl restart oracle-vps-file-manager
 sudo systemctl status oracle-vps-file-manager
-```
-
-Restart app:
-
-```bash
-sudo systemctl restart oracle-vps-file-manager
-```
-
-View logs:
-
-```bash
 journalctl -u oracle-vps-file-manager -f
+sudo nginx -t
+sudo systemctl reload nginx
 ```
 
-Restart Nginx:
+## Deployment And Updates
 
-```bash
-sudo systemctl restart nginx
+From Windows, configure the deployment session and run the helper:
+
+```powershell
+$env:OVFM_SERVER = "ubuntu@YOUR_SERVER_IP"
+$env:OVFM_KEY_PATH = "D:\path\to\your-oracle-key.pem"
+$env:OVFM_REPO_URL = "git@github.com:YOUR_GITHUB_USERNAME/oracle-vps-file-manager.git"
+$env:OVFM_PUBLIC_URL = "https://files.example.com"
+.\deploy-to-oracle.ps1
 ```
 
-## Domain Later
+Because this repository is private, the VPS must have read access to it. The recommended setup is a read-only GitHub deploy key attached to this repository and installed for the account performing the clone. Do not put a GitHub token in this repository or the deployment script.
 
-If you later buy a domain:
+Normal update flow:
 
-1. Point an `A` record to `YOUR_SERVER_IP`.
-2. Copy `deploy/nginx-domain.conf` to Nginx.
-3. Replace `files.example.com` with your domain.
-4. Install HTTPS with Certbot.
+1. Build and test locally.
+2. Commit and push to the private GitHub repository.
+3. Run `deploy-to-oracle.ps1` from Windows.
+4. Verify the service, Nginx, login, local server, and remote server.
 
-## Features
+The installer preserves the environment file, remote-server configuration, comments file, and SSH keys outside `/opt/oracle-vps-file-manager`.
 
-- Login-protected web UI
-- Browse files and folders
-- Search inside the current folder
-- Upload files
-- Download files
-- Create folders
-- Create and edit text files
-- Rename files and folders
-- Delete files and folders
-- Configurable protected file root
-- Manage the Primary VPS and additional SSH servers from one server selector
-- Bulk copy, move, and delete on the selected server
-- File details and private comments
-- Storage dashboard for the selected server
-- Nginx reverse proxy config
-- Systemd service config
+## Nginx
 
+The supplied Nginx configuration proxies to `127.0.0.1:4174`, sets `X-Forwarded-Proto`, and permits request bodies up to 150 MB. Keep Nginx's `client_max_body_size` aligned with `MAX_UPLOAD_BYTES`.
 
+For HTTPS, point a DNS `A` record at the VPS and use Certbot. The application itself remains bound to loopback behind Nginx.

@@ -7,8 +7,8 @@
     "dev": "vite",
     "build": "vite build --configLoader runner",
     "preview": "vite preview",
-    "manager": "node ./node_modules/vite/bin/vite.js build --configLoader runner && node server.cjs",
-    "start": "node server.cjs"
+    "manager": "node ./node_modules/vite/bin/vite.js build --configLoader runner && node server/index.cjs",
+    "start": "node server/index.cjs"
   },
   "dependencies": {
     "@vitejs/plugin-react": "^5.0.4",

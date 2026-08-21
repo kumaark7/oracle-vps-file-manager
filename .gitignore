@@ -3,6 +3,9 @@ dist
 .env
 .DS_Store
 *.log
+*.pyc
+__pycache__/
+.smoke-*
 .ovfm-comments.json
 bulk-smoke-*
 details-smoke-*.txt

@@ -14,4 +14,4 @@ if (-not $env:FILE_ROOT) {
   $env:FILE_ROOT = $PWD.Path
 }
 
-node ".\server.cjs"
+node ".\server\index.cjs"
