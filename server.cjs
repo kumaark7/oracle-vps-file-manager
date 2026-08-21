@@ -852,7 +852,14 @@ function runProcess(filePath, args, input = "") {
   });
 }
 
+function shellQuote(value) {
+  return `'${String(value).replace(/'/g, `'\\"'\\"'`)}'`;
+}
+
 async function runRemoteOperation(server, operation, payload = {}) {
+  const remoteCommand = ["python3", "-c", REMOTE_PYTHON, operation, server.rootPath]
+    .map(shellQuote)
+    .join(" ");
   const args = [
     "-i",
     server.keyPath,
@@ -863,11 +870,7 @@ async function runRemoteOperation(server, operation, payload = {}) {
     "-o",
     "StrictHostKeyChecking=accept-new",
     `${server.username}@${server.host}`,
-    "python3",
-    "-c",
-    REMOTE_PYTHON,
-    operation,
-    server.rootPath
+    remoteCommand
   ];
 
   const stdoutText = await runProcess("ssh", args, JSON.stringify(payload));
