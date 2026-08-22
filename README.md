@@ -109,6 +109,10 @@ Uploads use raw request bodies and are written as streams. Downloads stream dire
 
 Browser text editing is intentionally bounded by `MAX_EDIT_BYTES` because an editor must hold the text in memory. Uploads are bounded separately by `MAX_UPLOAD_BYTES`. Folder upload sends each contained file as an individual streamed request while preserving its relative path.
 
+Folder `Zip` creates a conflict-safe archive beside the source folder. Folder `Download` streams a ZIP to the browser without keeping a permanent download archive on the selected server.
+
+The toolbar copies `cd '/absolute/path'` for an existing SSH session and `ssh USER@HOST -p PORT -t "cd '/absolute/path' && exec bash -l"` for Windows OpenSSH. Server-side private-key paths are never included.
+
 ## Security Model
 
 - A single administrator username and password protect the API.

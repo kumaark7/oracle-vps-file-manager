@@ -17,6 +17,30 @@ async function writeRequest(req, adapter, remotePath) {
   await Promise.all([pipeline(req, limited, pass), upload]);
 }
 
+async function sendDownload(res, download) {
+  const headers = {
+    "Content-Type": "application/zip",
+    "Content-Disposition": contentDisposition(download.name),
+    "Cache-Control": "no-store"
+  };
+  if (Number.isFinite(download.size)) headers["Content-Length"] = download.size;
+  res.writeHead(200, headers);
+
+  let streamed = false;
+  const cancel = () => {
+    if (!streamed && download.cancel) download.cancel();
+  };
+  res.once("close", cancel);
+  try {
+    await pipeline(download.stream, res);
+    streamed = true;
+    res.off("close", cancel);
+    if (download.done) await download.done;
+  } finally {
+    cancel();
+  }
+}
+
 async function handleFilesRoute(req, res, requestUrl, server, adapter) {
   const pathname = requestUrl.pathname;
   const remotePath = requestUrl.searchParams.get("path");
@@ -51,6 +75,10 @@ async function handleFilesRoute(req, res, requestUrl, server, adapter) {
     if (download.done) await download.done;
     return true;
   }
+  if (req.method === "GET" && pathname === "/api/download-folder") {
+    await sendDownload(res, await adapter.downloadFolder(requireValue(remotePath, "path")));
+    return true;
+  }
   if (req.method === "POST" && ["/api/upload", "/api/save"].includes(pathname)) {
     await writeRequest(req, adapter, requireValue(remotePath, "path"));
     sendJson(res, 200, { ok: true });
@@ -59,9 +87,11 @@ async function handleFilesRoute(req, res, requestUrl, server, adapter) {
 
   if (req.method !== "POST") return false;
   const body = await parseActionBody(req);
+  let result = { ok: true };
   if (pathname === "/api/mkdir") await adapter.mkdir(requireValue(body.path, "path"));
   else if (pathname === "/api/rename") await adapter.rename(requireValue(body.from, "from"), requireValue(body.to, "to"));
   else if (pathname === "/api/delete") await adapter.remove(requireValue(body.path, "path"));
+  else if (pathname === "/api/zip") result = await adapter.zipFolder(requireValue(body.path, "path"));
   else if (pathname === "/api/comment") await setComment(server.id, requireValue(body.path, "path"), body.comment);
   else if (pathname === "/api/delete-bulk") {
     if (!Array.isArray(body.paths) || !body.paths.length) throw new HttpError(400, "No items selected");
@@ -71,7 +101,7 @@ async function handleFilesRoute(req, res, requestUrl, server, adapter) {
     await adapter.paste({ destination: body.destination || "/", items: body.items, operation: body.operation === "cut" ? "cut" : "copy" });
   } else return false;
 
-  sendJson(res, 200, { ok: true });
+  sendJson(res, 200, result);
   return true;
 }
 

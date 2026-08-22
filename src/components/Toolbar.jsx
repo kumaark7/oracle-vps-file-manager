@@ -1,20 +1,19 @@
-import { ArrowLeft, Copy, FilePlus2, Folder, FolderPlus, Home, Loader2, RefreshCcw, Scissors, Search, Trash2, Upload, X } from "lucide-react";
+import { ArrowLeft, Clipboard, Copy, FilePlus2, Folder, FolderPlus, Home, Loader2, RefreshCcw, Scissors, Search, Terminal, Trash2, Upload, X } from "lucide-react";
 import { ClipboardPasteIcon, CommandButton, IconButton } from "./Buttons.jsx";
 
 export function Toolbar({
-  currentPath, query, onQueryChange, busy, selectedCount, hasClipboard, clipboardOperation,
+  query, onQueryChange, busy, selectedCount, hasClipboard, clipboardOperation,
   onBack, onHome, onRefresh, onUpload, onUploadFolder, onNewFolder, onNewFile,
-  onCopy, onCut, onPaste, onClearSelection, onDeleteSelection
+  onCopySshPath, onCopyCmdPath, onCopy, onCut, onPaste, onClearSelection, onDeleteSelection
 }) {
   return (
     <div className="space-y-3 p-4">
       <div className="flex flex-col gap-3 xl:flex-row xl:items-center xl:justify-between">
-        <div className="flex min-w-0 items-center gap-2">
+        <div className="flex flex-wrap items-center gap-2">
           <IconButton title="Back" icon={ArrowLeft} onClick={onBack} />
           <IconButton title="Home" icon={Home} onClick={onHome} />
-          <div className="min-w-0 rounded-lg border border-slate-800 bg-slate-950 px-3 py-2 font-mono text-sm text-slate-300">
-            <span className="block truncate">{currentPath}</span>
-          </div>
+          <CommandButton icon={Terminal} label="SSH Path" onClick={onCopySshPath} />
+          <CommandButton icon={Clipboard} label="CMD Path" onClick={onCopyCmdPath} />
         </div>
         <div className="flex flex-wrap items-center gap-2">
           <IconButton title="Refresh" icon={busy ? Loader2 : RefreshCcw} onClick={onRefresh} spin={busy} disabled={busy} />

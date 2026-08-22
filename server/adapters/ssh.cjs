@@ -95,6 +95,7 @@ class SshAdapter {
   remove(remotePath) { return this.runJson("delete", { path: remotePath }); }
   deleteBulk(paths) { return this.runJson("delete_bulk", { paths }); }
   paste(payload) { return this.runJson("paste", payload); }
+  zipFolder(remotePath) { return this.runJson("zip_folder", { path: remotePath }); }
 
   async readBuffer(remotePath, maxBytes) {
     const details = await this.details(remotePath);
@@ -114,7 +115,19 @@ class SshAdapter {
     child.stdout.pipe(stream);
     const done = this.waitForProcess(child, { collectStdout: false });
     done.catch((error) => stream.destroy(error));
-    return { name: details.name, size: details.size, stream, done };
+    return { name: details.name, size: details.size, stream, done, cancel: () => child.kill("SIGTERM") };
+  }
+
+  async downloadFolder(remotePath) {
+    const details = await this.details(remotePath);
+    if (details.type !== "Directory") throw new HttpError(400, "Only folders can be archived");
+    const child = this.spawnAgent("zip_stream", { path: remotePath });
+    child.stdin.end();
+    const stream = new PassThrough();
+    child.stdout.pipe(stream);
+    const done = this.waitForProcess(child, { collectStdout: false });
+    done.catch((error) => stream.destroy(error));
+    return { name: `${details.name}.zip`, stream, done, cancel: () => child.kill("SIGTERM") };
   }
 
   async write(remotePath, readable) {

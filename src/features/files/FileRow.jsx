@@ -1,15 +1,18 @@
-import { Download, Edit3, File, Folder, Info, MoreVertical, Trash2 } from "lucide-react";
+import { useRef } from "react";
+import { Archive, Download, Edit3, File, Folder, Info, MoreVertical, Trash2 } from "lucide-react";
 import { formatBytes } from "./fileUtils.js";
+import { ActionMenu } from "./ActionMenu.jsx";
 
-function MenuItem({ icon: Icon, label, onClick, danger = false }) {
+function MenuItem({ icon: Icon, label, onClick, onClose, danger = false }) {
   return (
-    <button className={`flex w-full items-center gap-2 rounded-md px-3 py-2 text-left text-sm ${danger ? "text-rose-200 hover:bg-rose-950/60" : "text-slate-200 hover:bg-slate-800"}`} type="button" onClick={onClick}>
+    <button className={`flex w-full items-center gap-2 rounded-md px-3 py-2 text-left text-sm ${danger ? "text-rose-200 hover:bg-rose-950/60" : "text-slate-200 hover:bg-slate-800"}`} type="button" role="menuitem" onClick={() => { onClose(); onClick(); }}>
       <Icon size={16} /><span>{label}</span>
     </button>
   );
 }
 
-export function FileRow({ entry, selected, checked, menuOpen, menuDirection = "down", onSelect, onToggleCheck, onOpen, onMenu, onInfo, onRename, onDelete, onDownload }) {
+export function FileRow({ entry, selected, checked, menuOpen, onSelect, onToggleCheck, onOpen, onMenu, onCloseMenu, onInfo, onRename, onZip, onDelete, onDownload }) {
+  const menuButtonRef = useRef(null);
   const EntryIcon = entry.type === "directory" ? Folder : File;
   return (
     <tr className={`border-t border-slate-800 text-sm hover:bg-slate-800/60 ${selected ? "bg-slate-800" : ""}`} onClick={onSelect}>
@@ -27,18 +30,28 @@ export function FileRow({ entry, selected, checked, menuOpen, menuDirection = "d
       <td className="px-4 py-3 text-slate-400">{entry.type === "directory" ? "-" : formatBytes(entry.size)}</td>
       <td className="px-4 py-3 text-slate-400">{entry.modified}</td>
       <td className="px-4 py-3 font-mono text-xs text-slate-500">{entry.mode}</td>
-      <td className="relative px-4 py-3" data-menu-root>
-        <button className="icon-button" type="button" aria-label={`Actions for ${entry.name}`} title="Actions" aria-expanded={menuOpen} onClick={(event) => { event.stopPropagation(); onMenu(); }}>
+      <td className="px-4 py-3">
+        <button ref={menuButtonRef} className="icon-button" type="button" aria-label={`Actions for ${entry.name}`} title="Actions" aria-haspopup="menu" aria-expanded={menuOpen} onClick={(event) => { event.stopPropagation(); onMenu(); }}>
           <MoreVertical size={17} />
         </button>
         {menuOpen && (
-          <div className={`absolute right-4 z-20 w-44 rounded-lg border border-slate-700 bg-slate-950 p-1 shadow-2xl ${menuDirection === "up" ? "bottom-11" : "top-11"}`}>
-            <MenuItem icon={Info} label="Info" onClick={onInfo} />
-            {entry.type === "file" && <MenuItem icon={Download} label="Download" onClick={onDownload} />}
-            {entry.type === "file" && <MenuItem icon={Edit3} label="Edit" onClick={onOpen} />}
-            <MenuItem icon={Edit3} label="Rename" onClick={onRename} />
-            <MenuItem icon={Trash2} label="Delete" danger onClick={onDelete} />
-          </div>
+          <ActionMenu anchorRef={menuButtonRef} onClose={onCloseMenu}>
+            <MenuItem icon={Info} label="Info" onClick={onInfo} onClose={onCloseMenu} />
+            {entry.type === "directory" ? (
+              <>
+                <MenuItem icon={Edit3} label="Rename" onClick={onRename} onClose={onCloseMenu} />
+                <MenuItem icon={Archive} label="Zip" onClick={onZip} onClose={onCloseMenu} />
+                <MenuItem icon={Download} label="Download" onClick={onDownload} onClose={onCloseMenu} />
+              </>
+            ) : (
+              <>
+                <MenuItem icon={Download} label="Download" onClick={onDownload} onClose={onCloseMenu} />
+                <MenuItem icon={Edit3} label="Edit" onClick={onOpen} onClose={onCloseMenu} />
+                <MenuItem icon={Edit3} label="Rename" onClick={onRename} onClose={onCloseMenu} />
+              </>
+            )}
+            <MenuItem icon={Trash2} label="Delete" danger onClick={onDelete} onClose={onCloseMenu} />
+          </ActionMenu>
         )}
       </td>
     </tr>

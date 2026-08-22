@@ -4,6 +4,8 @@ import os
 import shutil
 import stat
 import sys
+import tempfile
+import zipfile
 from pathlib import Path
 
 operation = sys.argv[1]
@@ -108,6 +110,32 @@ def conflict_path(target_path):
     fail(f"Could not find a free name for {os.path.basename(target_path)}")
 
 
+def folder_source(remote_path):
+    if not remote_path or remote_path == "/":
+        fail("The configured file root cannot be archived")
+    absolute = resolve_path(remote_path, follow_final=False)
+    item_stat = os.lstat(absolute)
+    if stat.S_ISLNK(item_stat.st_mode) or not stat.S_ISDIR(item_stat.st_mode):
+        fail("Only folders can be archived")
+    if not inside_root(os.path.realpath(absolute)):
+        fail("Path is outside the configured file root")
+    return absolute
+
+
+def add_folder_to_zip(zip_handle, source):
+    root_name = os.path.basename(source.rstrip(os.sep))
+    for current, directories, files in os.walk(source, topdown=True, followlinks=False):
+        directories[:] = [name for name in directories if not os.path.islink(os.path.join(current, name))]
+        relative = os.path.relpath(current, source).replace("\\", "/")
+        archive_directory = root_name if relative == "." else f"{root_name}/{relative}"
+        zip_handle.write(current, archive_directory)
+        for file_name in files:
+            absolute = os.path.join(current, file_name)
+            item_stat = os.lstat(absolute)
+            if stat.S_ISREG(item_stat.st_mode) and not stat.S_ISLNK(item_stat.st_mode):
+                zip_handle.write(absolute, f"{archive_directory}/{file_name}")
+
+
 def remove_path(remote_path):
     if remote_path == "/":
         fail("Refusing to delete the configured file root")
@@ -208,6 +236,24 @@ try:
         with open(absolute, "wb") as file_handle:
             shutil.copyfileobj(sys.stdin.buffer, file_handle, length=1024 * 1024)
         print(json.dumps({"ok": True}), file=sys.stderr)
+    elif operation == "zip_folder":
+        source = folder_source(payload.get("path"))
+        target = conflict_path(os.path.join(os.path.dirname(source), os.path.basename(source) + ".zip"))
+        descriptor, temporary = tempfile.mkstemp(prefix=".ovfm-zip-", suffix=".tmp", dir=os.path.dirname(source))
+        os.close(descriptor)
+        os.chmod(temporary, 0o600)
+        try:
+            with zipfile.ZipFile(temporary, "w", compression=zipfile.ZIP_DEFLATED, allowZip64=True) as zip_handle:
+                add_folder_to_zip(zip_handle, source)
+            os.replace(temporary, target)
+        finally:
+            if os.path.exists(temporary):
+                os.unlink(temporary)
+        print(json.dumps({"name": os.path.basename(target), "path": to_virtual_path(target)}))
+    elif operation == "zip_stream":
+        source = folder_source(payload.get("path"))
+        with zipfile.ZipFile(sys.stdout.buffer, "w", compression=zipfile.ZIP_DEFLATED, allowZip64=True) as zip_handle:
+            add_folder_to_zip(zip_handle, source)
     elif operation == "mkdir":
         requested_path = payload.get("path")
         parent = resolve_path(parent_path(requested_path))

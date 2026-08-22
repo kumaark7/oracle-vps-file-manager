@@ -1,12 +1,12 @@
 import { useEffect, useMemo, useState } from "react";
 import { Loader2 } from "lucide-react";
-import { apiPath, downloadUrl, requestJson, saveText, uploadBody } from "./api/client.js";
+import { apiPath, downloadUrl, folderDownloadUrl, requestJson, saveText, uploadBody } from "./api/client.js";
 import { LoginScreen } from "./components/LoginScreen.jsx";
 import { ServerSelector } from "./components/ServerSelector.jsx";
 import { Sidebar } from "./components/Sidebar.jsx";
 import { FileBrowser } from "./features/files/FileBrowser.jsx";
 import { FileDialog } from "./features/files/FileDialog.jsx";
-import { joinPath, parentPath, sortedEntries } from "./features/files/fileUtils.js";
+import { cmdPathCommand, joinPath, parentPath, sortedEntries, sshPathCommand } from "./features/files/fileUtils.js";
 import { Storage } from "./features/storage/Storage.jsx";
 import { useServers } from "./hooks/useServers.js";
 import { useSession } from "./hooks/useSession.js";
@@ -143,12 +143,38 @@ export default function App() {
 
   function download(entry) {
     const link = document.createElement("a");
-    link.href = downloadUrl(currentServerId, entry.path);
-    link.download = entry.name;
+    link.href = entry.type === "directory" ? folderDownloadUrl(currentServerId, entry.path) : downloadUrl(currentServerId, entry.path);
+    link.download = entry.type === "directory" ? `${entry.name}.zip` : entry.name;
     document.body.appendChild(link);
     link.click();
     link.remove();
     updateServerState(currentServerId, { message: `${entry.name} download started`, status: "ready", menuFor: null });
+  }
+
+  async function zipFolder(entry) {
+    const serverId = currentServerId;
+    const pathAtStart = currentState.currentPath;
+    updateServerState(serverId, { status: "working", message: "", menuFor: null });
+    try {
+      const result = await requestJson(apiPath("/api/zip", serverId), { method: "POST", body: JSON.stringify({ path: entry.path }) });
+      await loadFiles(pathAtStart, serverId, `${result.name} created`);
+    } catch (error) {
+      updateServerState(serverId, { status: "error", message: error.message });
+    }
+  }
+
+  async function copyPathCommand(kind) {
+    const rootPath = currentState.currentRoot || currentServer?.rootPath || "/";
+    const command = kind === "ssh"
+      ? sshPathCommand(rootPath, currentState.currentPath)
+      : cmdPathCommand(currentServer, rootPath, currentState.currentPath);
+    try {
+      if (!navigator.clipboard?.writeText) throw new Error("Clipboard access is not available");
+      await navigator.clipboard.writeText(command);
+      updateServerState(currentServerId, { status: "ready", message: kind === "ssh" ? "SSH path copied" : "CMD command copied", menuFor: null });
+    } catch (error) {
+      updateServerState(currentServerId, { status: "error", message: `Could not copy command: ${error.message}` });
+    }
   }
 
   function beginClipboard(operation) {
@@ -165,6 +191,8 @@ export default function App() {
     setQuery: (query) => updateServerState(currentServerId, { query }),
     back: () => loadFiles(parentPath(currentState.currentPath)),
     home: () => loadFiles("/"),
+    copySshPath: () => copyPathCommand("ssh"),
+    copyCmdPath: () => copyPathCommand("cmd"),
     refresh: () => loadFiles(currentState.currentPath),
     newFolder: () => setDialog({ type: "folder" }),
     newFile: () => setDialog({ type: "file" }),
@@ -184,6 +212,7 @@ export default function App() {
     setMenuFor: (menuFor) => updateServerState(currentServerId, { menuFor }),
     info: (entry) => setDialog({ type: "info", entry }),
     rename: (entry) => setDialog({ type: "rename", entry }),
+    zip: zipFolder,
     remove: (entry) => setDialog({ type: "delete", entry }),
     download
   };
@@ -204,7 +233,7 @@ export default function App() {
   return (
     <main className="min-h-screen bg-slate-950 text-slate-100">
       <div className="mx-auto flex min-h-screen max-w-7xl flex-col px-4 py-4 sm:px-6 lg:px-8">
-        <ServerSelector servers={servers} currentServer={currentServer} currentServerId={currentServerId} currentRoot={currentState.currentRoot} onChange={(serverId) => { setDialog(null); setCurrentServerId(serverId); }} onLogout={handleLogout} />
+        <ServerSelector servers={servers} currentServer={currentServer} currentServerId={currentServerId} currentRoot={currentState.currentRoot} onChange={(serverId) => { setDialog(null); updateServerState(currentServerId, { menuFor: null }); setCurrentServerId(serverId); }} onLogout={handleLogout} />
         {serversError && <div className="mt-4 rounded-lg border border-rose-400/30 bg-rose-950/40 px-4 py-3 text-sm text-rose-100" role="alert">{serversError}</div>}
         <section className="grid flex-1 gap-4 py-4 lg:grid-cols-[280px_minmax(0,1fr)]">
           <Sidebar server={currentServer} entries={currentState.entries} onOpenPath={loadFiles} onOpenStorage={() => loadStorage()} />

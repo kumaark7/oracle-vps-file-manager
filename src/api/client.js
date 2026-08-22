@@ -61,3 +61,7 @@ export async function saveText(serverId, remotePath, content) {
 export function downloadUrl(serverId, remotePath) {
   return apiPath("/api/download", serverId, { path: remotePath });
 }
+
+export function folderDownloadUrl(serverId, remotePath) {
+  return apiPath("/api/download-folder", serverId, { path: remotePath });
+}

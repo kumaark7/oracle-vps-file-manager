@@ -1,4 +1,4 @@
-import { useEffect, useRef } from "react";
+import { useRef } from "react";
 import { ChevronRight, Loader2 } from "lucide-react";
 import { Toolbar } from "../../components/Toolbar.jsx";
 import { StatusMessage } from "../../components/StatusMessage.jsx";
@@ -24,19 +24,9 @@ export function FileBrowser({ state, visibleEntries, allVisibleSelected, actions
   const folderInputRef = useRef(null);
   const busy = state.status === "loading" || state.status === "working";
 
-  useEffect(() => {
-    function closeMenu(event) {
-      if (!state.menuFor || event.target.closest("[data-menu-root]")) return;
-      actions.setMenuFor(null);
-    }
-    document.addEventListener("pointerdown", closeMenu);
-    return () => document.removeEventListener("pointerdown", closeMenu);
-  }, [state.menuFor, actions]);
-
   return (
     <section className="min-w-0 rounded-lg border border-slate-800 bg-slate-900">
       <Toolbar
-        currentPath={state.currentPath}
         query={state.query}
         onQueryChange={actions.setQuery}
         busy={busy}
@@ -45,6 +35,8 @@ export function FileBrowser({ state, visibleEntries, allVisibleSelected, actions
         clipboardOperation={state.clipboard?.operation}
         onBack={actions.back}
         onHome={actions.home}
+        onCopySshPath={actions.copySshPath}
+        onCopyCmdPath={actions.copyCmdPath}
         onRefresh={actions.refresh}
         onUpload={() => fileInputRef.current?.click()}
         onUploadFolder={() => folderInputRef.current?.click()}
@@ -73,20 +65,21 @@ export function FileBrowser({ state, visibleEntries, allVisibleSelected, actions
           <tbody>
             {busy && !state.entries.length ? (
               <tr><td className="px-4 py-16 text-center text-slate-400" colSpan="6"><Loader2 className="mx-auto mb-3 animate-spin text-emerald-300" />Loading files</td></tr>
-            ) : visibleEntries.length ? visibleEntries.map((entry, index) => (
+            ) : visibleEntries.length ? visibleEntries.map((entry) => (
               <FileRow
                 key={entry.path}
                 entry={entry}
                 selected={state.selected?.path === entry.path}
                 checked={state.selectedPaths.includes(entry.path)}
                 menuOpen={state.menuFor === entry.path}
-                menuDirection={index >= visibleEntries.length - 4 ? "up" : "down"}
                 onSelect={() => actions.select(entry)}
                 onToggleCheck={() => actions.toggleSelected(entry.path)}
                 onOpen={() => actions.openEntry(entry)}
                 onMenu={() => actions.setMenuFor(state.menuFor === entry.path ? null : entry.path)}
+                onCloseMenu={() => actions.setMenuFor(null)}
                 onInfo={() => actions.info(entry)}
                 onRename={() => actions.rename(entry)}
+                onZip={() => actions.zip(entry)}
                 onDelete={() => actions.remove(entry)}
                 onDownload={() => actions.download(entry)}
               />

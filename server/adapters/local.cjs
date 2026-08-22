@@ -1,10 +1,12 @@
 const fs = require("fs");
 const fsp = require("fs/promises");
 const path = require("path");
+const { randomUUID } = require("crypto");
 const { pipeline } = require("stream/promises");
 const { HttpError } = require("../http.cjs");
 const { parentPath, resolveRootPath, safeName, toVirtualPath } = require("../path-utils.cjs");
 const { scanUsage } = require("../services/storage.cjs");
+const { createFolderZipStream } = require("../services/zip.cjs");
 
 function modeString(mode, isDirectory, isSymbolicLink) {
   const kind = isDirectory ? "d" : isSymbolicLink ? "l" : "-";
@@ -167,6 +169,33 @@ class LocalAdapter {
     const stats = await fsp.stat(absolute);
     if (!stats.isFile()) throw new HttpError(400, "Only files can be downloaded");
     return { name: path.basename(absolute), size: stats.size, stream: fs.createReadStream(absolute) };
+  }
+
+  async folderSource(remotePath) {
+    if (!remotePath || remotePath === "/") throw new HttpError(403, "The configured file root cannot be archived");
+    const absolute = await this.resolveEntry(remotePath);
+    const stats = await fsp.lstat(absolute);
+    if (!stats.isDirectory() || stats.isSymbolicLink()) throw new HttpError(400, "Only folders can be archived");
+    await this.assertInside(await fsp.realpath(absolute));
+    return absolute;
+  }
+
+  async zipFolder(remotePath) {
+    const source = await this.folderSource(remotePath);
+    const target = await conflictPath(path.join(path.dirname(source), `${path.basename(source)}.zip`));
+    const temporary = path.join(path.dirname(source), `.${path.basename(source)}.${randomUUID()}.zip.tmp`);
+    try {
+      await pipeline(await createFolderZipStream(source), fs.createWriteStream(temporary, { flags: "wx", mode: 0o600 }));
+      await fsp.rename(temporary, target);
+      return { name: path.basename(target), path: toVirtualPath(this.server.rootPath, target) };
+    } finally {
+      await fsp.rm(temporary, { force: true }).catch(() => {});
+    }
+  }
+
+  async downloadFolder(remotePath) {
+    const source = await this.folderSource(remotePath);
+    return { name: `${path.basename(source)}.zip`, stream: await createFolderZipStream(source) };
   }
 
   async write(remotePath, readable) {

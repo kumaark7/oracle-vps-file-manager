@@ -23,6 +23,35 @@ export function parentPath(value) {
   return index <= 0 ? "/" : clean.slice(0, index);
 }
 
+export function absoluteServerPath(rootPath, currentPath) {
+  const root = String(rootPath || "/");
+  const parts = String(currentPath || "/").split("/").filter(Boolean);
+  if (/^[a-zA-Z]:[\\/]/.test(root)) {
+    const cleanRoot = root.replace(/[\\/]+$/, "");
+    return parts.length ? `${cleanRoot}\\${parts.join("\\")}` : cleanRoot;
+  }
+  const cleanRoot = root === "/" ? "" : root.replace(/\/+$/, "");
+  if (!parts.length) return cleanRoot || "/";
+  return `${cleanRoot}/${parts.join("/")}`;
+}
+
+export function shellQuote(value) {
+  return `'${String(value).replace(/'/g, "'\\''")}'`;
+}
+
+export function sshPathCommand(rootPath, currentPath) {
+  return `cd ${shellQuote(absoluteServerPath(rootPath, currentPath))}`;
+}
+
+export function cmdPathCommand(server, rootPath, currentPath) {
+  const rawHost = String(server?.host || "");
+  const host = rawHost.includes(":") && !rawHost.startsWith("[") ? `[${rawHost}]` : rawHost;
+  const destination = `${server?.username || "ubuntu"}@${host}`;
+  const destinationArgument = /[\s"&|<>^]/.test(destination) ? `"${destination.replace(/"/g, '\\"')}"` : destination;
+  const remotePath = shellQuote(absoluteServerPath(rootPath, currentPath));
+  return `ssh ${destinationArgument} -p ${server?.port || 22} -t "cd ${remotePath} && exec bash -l"`;
+}
+
 export function sortedEntries(entries, query) {
   const needle = query.trim().toLowerCase();
   const sorted = [...entries].sort((first, second) => {
