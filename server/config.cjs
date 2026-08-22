@@ -27,6 +27,7 @@ const defaultRoot =
   (process.platform === "win32" ? PROJECT_ROOT : "/home/ubuntu");
 
 const config = {
+  
   projectRoot: PROJECT_ROOT,
   distDir: path.join(PROJECT_ROOT, "dist"),
   remoteAgentPath: path.join(__dirname, "remote", "file-agent.py"),
@@ -41,12 +42,18 @@ const config = {
   maxUploadBytes: positiveInteger("MAX_UPLOAD_BYTES", 150 * 1024 * 1024),
   maxEditBytes: positiveInteger("MAX_EDIT_BYTES", 5 * 1024 * 1024),
   maxProcessBytes: positiveInteger("MAX_PROCESS_BYTES", 220 * 1024 * 1024),
-  commentsPath: path.resolve(process.env.OVFM_COMMENTS_PATH || path.join(os.homedir(), ".oracle-vps-file-manager-comments.json")),
+  commentsPath: path.resolve(process.env.OVFM_COMMENTS_PATH ||  path.join(os.homedir(), ".oracle-vps-file-manager-comments.json")),
   serversPath: path.resolve(process.env.OVFM_SERVERS_PATH || path.join(PROJECT_ROOT, ".ovfm-servers.json")),
+authDir: path.resolve(
+  process.env.OVFM_AUTH_DIR ||
+  path.join(os.homedir(), ".oracle-vps-file-manager", "auth")
+),
+
   publicHost: process.env.OVFM_PUBLIC_HOST || "",
   localServerName: process.env.OVFM_LOCAL_SERVER_NAME || "",
   localServerUser: process.env.OVFM_LOCAL_SERVER_USER || "",
   trustProxy: booleanValue("TRUST_PROXY", true)
+ 
 };
 
 if (config.sessionSecret.length < 32) {
