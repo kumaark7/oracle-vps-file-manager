@@ -28,31 +28,58 @@ function buildLocalServer() {
 async function readConfiguredServers() {
   try {
     const parsed = JSON.parse(await fsp.readFile(config.serversPath, "utf8"));
-    return Array.isArray(parsed) ? parsed : Array.isArray(parsed.servers) ? parsed.servers : [];
+    if (Array.isArray(parsed)) return parsed;
+    if (parsed && typeof parsed === "object" && Array.isArray(parsed.servers)) {
+      return parsed.servers;
+    }
+    throw new Error("Server configuration must be an array or an object with a servers array");
   } catch (error) {
     if (error.code === "ENOENT") return [];
-    throw error;
+    throw new Error(`Could not load server configuration: ${error.message}`);
   }
 }
 
-function sanitizeServer(rawServer, index) {
-  if (!rawServer || typeof rawServer !== "object") throw new Error(`Invalid server configuration at index ${index}`);
-  const id = normalizeServerId(rawServer.id || rawServer.name || `server-${index + 1}`);
-  if (rawServer.kind === "local") throw new Error("Only the built-in local server can use kind=local");
-  if (!rawServer.host || !rawServer.username || !rawServer.keyPath) {
-    throw new Error(`Server ${id} must include host, username, and keyPath`);
+function requiredString(rawServer, field, index) {
+  if (typeof rawServer[field] !== "string" || !rawServer[field].trim()) {
+    throw new Error(`Server configuration at index ${index} must include ${field}`);
   }
-  const port = Number(rawServer.port || 22);
+
+  return rawServer[field].trim();
+}
+
+function sanitizeServer(rawServer, index) {
+  if (!rawServer || typeof rawServer !== "object" || Array.isArray(rawServer)) {
+    throw new Error(`Invalid server configuration at index ${index}`);
+  }
+
+  const configuredId = requiredString(rawServer, "id", index);
+  const id = normalizeServerId(configuredId);
+  if (!id) throw new Error(`Server configuration at index ${index} has an invalid id`);
+
+  const name = requiredString(rawServer, "name", index);
+  const kind = requiredString(rawServer, "kind", index).toLowerCase();
+  if (kind !== "ssh") throw new Error(`Server ${id} has an invalid kind; expected ssh`);
+
+  const host = requiredString(rawServer, "host", index);
+  const username = requiredString(rawServer, "username", index);
+  const keyPath = requiredString(rawServer, "keyPath", index);
+  const rootPath = requiredString(rawServer, "rootPath", index);
+  if (!path.posix.isAbsolute(rootPath)) {
+    throw new Error(`Server ${id} rootPath must be an absolute POSIX path`);
+  }
+
+  const port = rawServer.port === undefined ? 22 : Number(rawServer.port);
   if (!Number.isInteger(port) || port < 1 || port > 65535) throw new Error(`Server ${id} has an invalid port`);
+
   return {
     id,
-    name: String(rawServer.name || id),
-    kind: "ssh",
-    host: String(rawServer.host),
+    name,
+    kind,
+    host,
     port,
-    username: String(rawServer.username),
-    keyPath: path.resolve(String(rawServer.keyPath)),
-    rootPath: path.posix.normalize(String(rawServer.rootPath || `/home/${rawServer.username}`)),
+    username,
+    keyPath: path.resolve(keyPath),
+    rootPath: path.posix.normalize(rootPath),
     description: String(rawServer.description || "Remote server managed over SSH")
   };
 }

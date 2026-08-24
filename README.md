@@ -70,38 +70,80 @@ MAX_EDIT_BYTES=5242880
 
 `SESSION_TTL_MS`, `MAX_JSON_BYTES`, and `MAX_PROCESS_BYTES` are also configurable. Invalid numeric or boolean values fail during startup with a clear error.
 
-## Remote Servers
+## Adding Another Server
 
-Additional servers are configured outside the repository. Keep their keys on the Primary VPS, never in GitHub or browser-accessible folders.
+Additional servers are configured on the Primary VPS. The application stays on the Primary VPS and manages every remote server through OpenSSH. Adding an entry does not require frontend changes or a frontend rebuild.
+
+Keep private keys in `/home/ubuntu/.ssh/`, never in Git, the browser, or a browser-accessible folder.
+
+1. Install the new server's private key for the service user:
+
+```bash
+sudo install -d -m 700 -o ubuntu -g ubuntu /home/ubuntu/.ssh
+sudo install -m 600 -o ubuntu -g ubuntu new-server.key /home/ubuntu/.ssh/minecraft
+```
+
+2. Test the SSH connection from the Primary VPS:
+
+```bash
+ssh -i /home/ubuntu/.ssh/minecraft ubuntu@SERVER_IP
+```
+
+3. Add another object to `/etc/oracle-vps-file-manager-servers.json`:
 
 ```json
 {
   "servers": [
     {
-      "id": "second-server",
-      "name": "Second Server",
+      "id": "dark",
+      "name": "Dark",
       "kind": "ssh",
-      "host": "SERVER_PUBLIC_IP",
+      "host": "10.0.0.10",
       "port": 22,
       "username": "ubuntu",
       "rootPath": "/home/ubuntu",
-      "keyPath": "/home/ubuntu/.ssh/second-server.key",
+      "keyPath": "/home/ubuntu/.ssh/dark",
       "description": "Remote Ubuntu server managed over SSH"
+    },
+    {
+      "id": "minecraft",
+      "name": "Minecraft",
+      "kind": "ssh",
+      "host": "SERVER_IP",
+      "port": 22,
+      "username": "ubuntu",
+      "rootPath": "/home/ubuntu",
+      "keyPath": "/home/ubuntu/.ssh/minecraft",
+      "description": "Minecraft VPS managed over SSH"
     }
   ]
 }
 ```
 
-Secure the files for the service user:
+Each remote entry requires a unique `id`, display `name`, `kind: "ssh"`, hostname, valid SSH port, username, private-key path, and absolute remote root path. The existing object-with-`servers` format and the legacy top-level array format are both accepted.
+
+4. Validate the configuration and key files:
 
 ```bash
 sudo chown ubuntu:ubuntu /etc/oracle-vps-file-manager-servers.json
 sudo chmod 600 /etc/oracle-vps-file-manager-servers.json
-sudo install -d -m 700 -o ubuntu -g ubuntu /home/ubuntu/.ssh
-sudo chmod 600 /home/ubuntu/.ssh/second-server.key
+cd /home/ubuntu/MainDashboard/VPS_Manager
+npm run servers:check
+
+# Optional: also test each SSH connection.
+npm run servers:check -- --connect
 ```
 
-The browser receives server labels, hosts, ports, usernames, and protected roots. It never receives `keyPath` or private-key content.
+5. Restart VPS Manager and verify the server selector:
+
+```bash
+sudo systemctl restart oracle-vps-file-manager
+sudo systemctl status oracle-vps-file-manager --no-pager
+```
+
+The backend loads every valid entry and the existing selector displays it automatically. A remote host is contacted only when it is selected or when the optional checker connectivity test is requested. One offline remote server does not prevent the local server or other remotes from being used.
+
+The browser receives server labels, hosts, ports, usernames, and protected roots. It never receives `keyPath` or private-key content. See `.ovfm-servers.example.json` for a multi-server example.
 
 ## Uploads And Downloads
 
@@ -131,7 +173,7 @@ The toolbar copies `cd '/absolute/path'` for an existing SSH session and `ssh US
 The systemd service runs:
 
 ```bash
-/usr/bin/node /opt/oracle-vps-file-manager/server/index.cjs
+/usr/bin/node /home/ubuntu/MainDashboard/VPS_Manager/server/index.cjs
 ```
 
 Useful commands:

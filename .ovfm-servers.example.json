@@ -1,15 +1,37 @@
 {
   "servers": [
     {
-      "id": "remote-server",
-      "name": "Remote Server",
+      "id": "dark",
+      "name": "Dark",
       "kind": "ssh",
-      "host": "SERVER_PUBLIC_IP",
+      "host": "10.0.0.10",
       "port": 22,
       "username": "ubuntu",
       "rootPath": "/home/ubuntu",
-      "keyPath": "/home/ubuntu/.ssh/remote-server.key",
+      "keyPath": "/home/ubuntu/.ssh/dark",
       "description": "Remote Ubuntu server managed over SSH"
+    },
+    {
+      "id": "minecraft",
+      "name": "Minecraft",
+      "kind": "ssh",
+      "host": "10.0.0.20",
+      "port": 22,
+      "username": "ubuntu",
+      "rootPath": "/home/ubuntu",
+      "keyPath": "/home/ubuntu/.ssh/minecraft",
+      "description": "Minecraft VPS managed over SSH"
+    },
+    {
+      "id": "backup",
+      "name": "Backup",
+      "kind": "ssh",
+      "host": "10.0.0.30",
+      "port": 22,
+      "username": "ubuntu",
+      "rootPath": "/home/ubuntu",
+      "keyPath": "/home/ubuntu/.ssh/backup",
+      "description": "Backup VPS managed over SSH"
     }
   ]
 }

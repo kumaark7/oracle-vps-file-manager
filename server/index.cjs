@@ -5,6 +5,7 @@ const path = require("path");
 const config = require("./config.cjs");
 const { HttpError, parseUrl, sendError } = require("./http.cjs");
 const { handleApi } = require("./routes/index.cjs");
+const { getServers } = require("./servers.cjs");
 
 const mimeTypes = {
   ".css": "text/css; charset=utf-8",
@@ -79,6 +80,21 @@ function startServer() {
   return server;
 }
 
-if (require.main === module) startServer();
+async function startValidatedServer() {
+  await getServers();
+  return startServer();
+}
 
-module.exports = { createApplicationServer, startServer };
+if (require.main === module) {
+  startValidatedServer()
+    .catch((error) => {
+      console.error(`Server configuration error: ${error.message}`);
+      process.exitCode = 1;
+    });
+}
+
+module.exports = {
+  createApplicationServer,
+  startServer,
+  startValidatedServer
+};

@@ -6,6 +6,9 @@
   "scripts": {
     "dev": "vite",
     "build": "vite build --configLoader runner",
+    "test:auth-recovery": "node --test test/auth-recovery.test.cjs",
+    "test:servers": "node --test test/servers.test.cjs",
+    "servers:check": "node scripts/check-servers.cjs",
     "preview": "vite preview",
     "manager": "node ./node_modules/vite/bin/vite.js build --configLoader runner && node server/index.cjs",
     "start": "node server/index.cjs"
