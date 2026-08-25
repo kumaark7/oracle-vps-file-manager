@@ -86,6 +86,26 @@ function requestIsSecure(req, trustProxy) {
   return String(req.headers["x-forwarded-proto"] || "").split(",")[0].trim().toLowerCase() === "https";
 }
 
+function requestClientAddress(req, trustProxy) {
+  const directAddress = String(req.socket.remoteAddress || "unknown");
+  if (!trustProxy || !isLoopback(directAddress)) return directAddress;
+
+  const realAddress = String(req.headers["x-real-ip"] || "").trim();
+  if (realAddress && realAddress.length <= 128 && !/[\r\n]/.test(realAddress)) {
+    return realAddress;
+  }
+
+  const forwarded = String(req.headers["x-forwarded-for"] || "")
+    .split(",")
+    .map((value) => value.trim())
+    .filter(Boolean);
+  const forwardedAddress = forwarded.at(-1);
+
+  return forwardedAddress && forwardedAddress.length <= 128
+    ? forwardedAddress
+    : directAddress;
+}
+
 function isLoopback(address = "") {
   return address === "127.0.0.1" || address === "::1" || address === "::ffff:127.0.0.1";
 }
@@ -104,6 +124,7 @@ module.exports = {
   pipeline,
   readBuffer,
   readJson,
+  requestClientAddress,
   requestIsSecure,
   requireValue,
   sendError,

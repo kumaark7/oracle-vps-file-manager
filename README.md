@@ -18,7 +18,8 @@ server/
   remote/file-agent.py Remote filesystem agent executed through SSH
   routes/              Auth, files, and storage HTTP routes
   services/            Comments, file normalization, and storage scanning
-  auth.cjs             Signed sessions and secure cookies
+  auth/                 Session, recovery-code, and auth storage helpers
+  auth.cjs             Password and recovery-code authentication
   config.cjs           Validated environment configuration
   servers.cjs          Local and remote server configuration
   index.cjs            HTTP server and static file serving
@@ -48,6 +49,47 @@ $env:ADMIN_PASSWORD = "choose-a-local-password"
 Open `http://127.0.0.1:4174`. By default, local development protects the project directory as its file root. Set `$env:FILE_ROOT` before startup to use another directory.
 
 For frontend-only development, run `npm run dev`. API features still require the Node backend.
+
+## Authenticator Login
+
+The login form has one credential field. It accepts either the configured administrator password or a current six-digit code from any standards-compatible TOTP authenticator app.
+
+Create or replace the authenticator account from the server console:
+
+```bash
+node scripts/auth-totp.cjs setup
+```
+
+The command displays an account key and an `otpauth://` URI. Add the account to Google Authenticator, Microsoft Authenticator, Aegis, Authy, or another TOTP app by entering the displayed key. Keep the setup output private.
+
+Check or disable the authenticator account:
+
+```bash
+node scripts/auth-totp.cjs status
+node scripts/auth-totp.cjs disable
+```
+
+Authenticator codes use SHA-1, six digits, and a 30-second period for broad app compatibility. A small clock-skew window is accepted, but each accepted time counter is persisted and cannot be replayed.
+
+## Recovery Codes
+
+Recovery codes remain a separate emergency mechanism. Select `Use recovery code` below the main password/authenticator form to enter one.
+
+Generate a new set of recovery codes from the server console:
+
+```bash
+node scripts/auth-recovery.cjs generate
+```
+
+Store the displayed plaintext codes outside the VPS. They are shown only once. The application persists only unique salts and scrypt hashes in `~/.oracle-vps-file-manager/auth/recovery.json`.
+
+Check how many unused codes remain:
+
+```bash
+node scripts/auth-recovery.cjs count
+```
+
+Password authentication remains available as the migration fallback. Recovery-code attempts are rate-limited per client, and the same code can never authenticate twice.
 
 ## Configuration
 
@@ -157,7 +199,11 @@ The toolbar copies `cd '/absolute/path'` for an existing SSH session and `ssh US
 
 ## Security Model
 
-- A single administrator username and password protect the API.
+- The administrator can sign in through one field with the configured password or a six-digit TOTP authenticator code.
+- TOTP secrets are generated with secure randomness, stored in the protected auth directory, and never returned by status or browser APIs.
+- Accepted TOTP counters are atomically persisted so a code cannot be replayed during its validity window.
+- Recovery codes use secure randomness, unique salts, scrypt hashes, timing-safe comparison, and atomic consumption.
+- Recovery-code attempts are rate-limited per client; submitted codes are never logged or returned.
 - Session IDs are random, HMAC-signed, expire, and are compared with timing-safe checks.
 - Cookies use `HttpOnly` and `SameSite=Strict`.
 - Cookies also use `Secure` when HTTPS is detected directly or through a trusted local Nginx proxy.

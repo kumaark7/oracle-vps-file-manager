@@ -30,7 +30,13 @@ function emptyServerState() {
 }
 
 export default function App() {
-  const { session, sessionError, login, logout } = useSession();
+  const {
+    session,
+    sessionError,
+    login,
+    loginWithRecovery,
+    logout
+  } = useSession();
   const { servers, currentServerId, setCurrentServerId, serversError } = useServers(session.authenticated, session.defaultServerId);
   const [serverStates, setServerStates] = useState({});
   const [dialog, setDialog] = useState(null);
@@ -228,7 +234,15 @@ export default function App() {
   };
 
   if (session.loading) return <main className="grid min-h-screen place-items-center bg-slate-950 text-slate-200"><div className="text-center"><Loader2 className="mx-auto mb-3 animate-spin text-emerald-300" /><p>Opening Oracle VPS File Manager</p></div></main>;
-  if (!session.authenticated) return <LoginScreen onLogin={login} passwordConfigured={session.passwordConfigured} initialError={sessionError} />;
+  if (!session.authenticated) {
+    return (
+      <LoginScreen
+        onLogin={login}
+        onRecoveryLogin={loginWithRecovery}
+        initialError={sessionError}
+      />
+    );
+  }
 
   return (
     <main className="min-h-screen bg-slate-950 text-slate-100">

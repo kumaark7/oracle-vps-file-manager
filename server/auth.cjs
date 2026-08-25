@@ -1,5 +1,14 @@
 const config = require("./config.cjs");
-const { HttpError, sendJson } = require("./http.cjs");
+const {
+  HttpError,
+  requestClientAddress,
+  sendJson
+} = require("./http.cjs");
+const {
+  verifyAndConsumeRecoveryCode
+} = require("./auth/recovery.cjs");
+const { verifyAndConsumeTotp } = require("./auth/totp.cjs");
+const { createAttemptLimiter } = require("./auth/rate-limit.cjs");
 
 const {
   safeEqual,
@@ -9,27 +18,74 @@ const {
   clearSessionCookie
 } = require("./auth/sessions.cjs");
 
-function login(req, res, body) {
-  if (!config.adminPassword) {
-    throw new HttpError(
-      503,
-      "Set ADMIN_PASSWORD before starting the file manager."
-    );
-  }
+const recoveryAttempts = createAttemptLimiter({
+  maxAttempts: 5,
+  windowMs: 15 * 60 * 1000,
+  blockMs: 15 * 60 * 1000
+});
 
-  if (
-    !safeEqual(body.username || "", config.adminUser) ||
-    !safeEqual(body.password || "", config.adminPassword)
-  ) {
-    throw new HttpError(401, "Invalid username or password");
-  }
+const totpAttempts = createAttemptLimiter({
+  maxAttempts: 5,
+  windowMs: 15 * 60 * 1000,
+  blockMs: 15 * 60 * 1000
+});
 
+function sendAuthenticated(req, res) {
   res.setHeader("Set-Cookie", createSessionCookie(req));
 
   sendJson(res, 200, {
     ok: true,
     username: config.adminUser
   });
+}
+
+async function login(req, res, body) {
+  const username = String(body.username || "");
+  const credential = String(body.password || "");
+
+  if (!safeEqual(username, config.adminUser)) {
+    throw new HttpError(401, "Invalid username or credential");
+  }
+
+  if (config.adminPassword && safeEqual(credential, config.adminPassword)) {
+    sendAuthenticated(req, res);
+    return;
+  }
+
+  if (/^\d{6}$/.test(credential.trim())) {
+    const attemptKey = requestClientAddress(req, config.trustProxy);
+
+    if (!totpAttempts.take(attemptKey)) {
+      throw new HttpError(429, "Too many authenticator attempts. Try again later.");
+    }
+
+    if (await verifyAndConsumeTotp(credential)) {
+      totpAttempts.reset(attemptKey);
+      sendAuthenticated(req, res);
+      return;
+    }
+  }
+
+  throw new HttpError(401, "Invalid username or credential");
+}
+
+async function loginWithRecovery(req, res, body) {
+  const code = String(body.code || "");
+  if (!code.trim()) {
+    throw new HttpError(400, "Recovery code is required");
+  }
+
+  const attemptKey = requestClientAddress(req, config.trustProxy);
+  if (!recoveryAttempts.take(attemptKey)) {
+    throw new HttpError(429, "Too many recovery attempts. Try again later.");
+  }
+
+  if (!await verifyAndConsumeRecoveryCode(code)) {
+    throw new HttpError(401, "Invalid recovery code");
+  }
+
+  recoveryAttempts.reset(attemptKey);
+  sendAuthenticated(req, res);
 }
 
 function logout(req, res) {
@@ -44,13 +100,6 @@ function logout(req, res) {
 }
 
 function requireAuth(req) {
-  if (!config.adminPassword) {
-    throw new HttpError(
-      503,
-      "Set ADMIN_PASSWORD before starting the file manager."
-    );
-  }
-
   if (!verifySession(req)) {
     throw new HttpError(401, "Login required");
   }
@@ -67,6 +116,7 @@ function sessionStatus(req) {
 
 module.exports = {
   login,
+  loginWithRecovery,
   logout,
   requireAuth,
   sessionStatus

@@ -8,7 +8,15 @@ async function handleAuthRoute(req, res, requestUrl) {
     return true;
   }
   if (req.method === "POST" && requestUrl.pathname === "/api/login") {
-    auth.login(req, res, await readJson(req, config.maxJsonBytes));
+    await auth.login(req, res, await readJson(req, config.maxJsonBytes));
+    return true;
+  }
+  if (req.method === "POST" && requestUrl.pathname === "/api/login/recovery") {
+    await auth.loginWithRecovery(
+      req,
+      res,
+      await readJson(req, config.maxJsonBytes)
+    );
     return true;
   }
   if (req.method === "POST" && requestUrl.pathname === "/api/logout") {

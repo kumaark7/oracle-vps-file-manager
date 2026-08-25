@@ -26,12 +26,25 @@ export function useSession() {
 
   useEffect(() => { refresh(); }, [refresh]);
 
-  const login = useCallback(async (username, password) => {
+  const login = useCallback(async (username, credential) => {
     const data = await requestJson("/api/login", {
       method: "POST",
-      body: JSON.stringify({ username, password })
+      body: JSON.stringify({ username, password: credential })
     });
     setSession((current) => ({ ...current, loading: false, authenticated: true, username: data.username, passwordConfigured: true }));
+  }, []);
+
+  const loginWithRecovery = useCallback(async (code) => {
+    const data = await requestJson("/api/login/recovery", {
+      method: "POST",
+      body: JSON.stringify({ code })
+    });
+    setSession((current) => ({
+      ...current,
+      loading: false,
+      authenticated: true,
+      username: data.username
+    }));
   }, []);
 
   const logout = useCallback(async () => {
@@ -39,5 +52,12 @@ export function useSession() {
     setSession((current) => ({ ...current, authenticated: false }));
   }, []);
 
-  return { session, sessionError, login, logout, refresh };
+  return {
+    session,
+    sessionError,
+    login,
+    loginWithRecovery,
+    logout,
+    refresh
+  };
 }

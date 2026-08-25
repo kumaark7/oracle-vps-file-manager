@@ -68,12 +68,17 @@ async function writeJson(filename, value) {
     await fsp.rename(temporary, target);
     await fsp.chmod(target, FILE_MODE);
 
+    let dirHandle;
+
     try {
-      const dirHandle = await fsp.open(config.authDir, fs.constants.O_RDONLY);
+      dirHandle = await fsp.open(config.authDir, fs.constants.O_RDONLY);
       await dirHandle.sync();
-      await dirHandle.close();
     } catch {
       // Directory fsync is best-effort on platforms that support it.
+    } finally {
+      if (dirHandle) {
+        await dirHandle.close().catch(() => {});
+      }
     }
   } finally {
     if (handle) {

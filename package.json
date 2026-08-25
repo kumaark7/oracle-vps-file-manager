@@ -7,6 +7,8 @@
     "dev": "vite",
     "build": "vite build --configLoader runner",
     "test:auth-recovery": "node --test test/auth-recovery.test.cjs",
+    "test:auth-login": "node --test test/auth-login.test.cjs",
+    "test:auth-totp": "node --test test/auth-totp.test.cjs",
     "test:servers": "node --test test/servers.test.cjs",
     "servers:check": "node scripts/check-servers.cjs",
     "preview": "vite preview",
