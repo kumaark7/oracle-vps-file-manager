@@ -13,6 +13,7 @@ import { useServers } from "./hooks/useServers.js";
 import { useSession } from "./hooks/useSession.js";
 
 const CodeEditor = lazy(() => import("./features/editor/EditorView.jsx"));
+const TerminalView = lazy(() => import("./features/terminal/TerminalView.jsx"));
 
 function emptyServerState() {
   return {
@@ -315,9 +316,25 @@ export default function App() {
             </Suspense>
           </section>
         ) : (
-          <section className="grid flex-1 gap-4 py-4 lg:grid-cols-[280px_minmax(0,1fr)]">
-            <Sidebar server={currentServer} entries={currentState.entries} onOpenPath={loadFiles} onOpenStorage={() => loadStorage()} />
-            {currentState.activeView === "storage"
+          <section className={`dashboard-layout grid flex-1 gap-4 py-4 lg:grid-cols-[280px_minmax(0,1fr)] ${currentState.activeView === "terminal" ? "dashboard-layout--terminal" : ""}`}>
+            <Sidebar
+              server={currentServer}
+              entries={currentState.entries}
+              onOpenPath={loadFiles}
+              onOpenStorage={() => loadStorage()}
+              onOpenTerminal={() => updateServerState(currentServerId, { activeView: "terminal", menuFor: null })}
+            />
+            {currentState.activeView === "terminal"
+              ? <Suspense fallback={<div className="grid min-h-[28rem] place-items-center rounded-lg border border-slate-800 bg-slate-900 text-slate-400"><Loader2 className="animate-spin" /></div>}>
+                  <TerminalView
+                    key={`${currentServerId}:${currentState.currentPath}`}
+                    server={currentServer}
+                    serverId={currentServerId}
+                    path={currentState.currentPath}
+                    onBack={() => updateServerState(currentServerId, { activeView: "files" })}
+                  />
+                </Suspense>
+              : currentState.activeView === "storage"
               ? <Storage server={currentServer} storage={currentState.storage} onRefresh={() => loadStorage()} onHome={() => updateServerState(currentServerId, { activeView: "files" })} />
               : <FileBrowser state={currentState} visibleEntries={visibleEntries} allVisibleSelected={allVisibleSelected} actions={browserActions} />}
           </section>

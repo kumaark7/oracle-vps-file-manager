@@ -1,4 +1,4 @@
-import { Database, Folder, Server, Smartphone } from "lucide-react";
+import { Database, Folder, Server, Smartphone, TerminalSquare } from "lucide-react";
 import { formatBytes } from "../features/files/fileUtils.js";
 
 function QuickStat({ label, value }) {
@@ -10,7 +10,7 @@ function QuickStat({ label, value }) {
   );
 }
 
-export function Sidebar({ server, entries, onOpenPath, onOpenStorage }) {
+export function Sidebar({ server, entries, onOpenPath, onOpenStorage, onOpenTerminal }) {
   const folders = entries.filter((entry) => entry.type === "directory").length;
   const files = entries.length - folders;
   const shownSize = entries.reduce((sum, entry) => sum + (entry.type === "file" ? entry.size : 0), 0);
@@ -61,6 +61,14 @@ export function Sidebar({ server, entries, onOpenPath, onOpenStorage }) {
           </div>
         </div>
         <Smartphone className="text-slate-400" size={18} />
+      </button>
+
+      <button className="feature-launcher" type="button" onClick={onOpenTerminal}>
+        <span className="feature-launcher__icon"><TerminalSquare size={18} /></span>
+        <span className="min-w-0 text-left">
+          <span className="block text-sm font-semibold text-slate-100">Terminal</span>
+          <span className="block truncate text-xs text-slate-400">Open a shell on {server?.name || "this server"}</span>
+        </span>
       </button>
     </aside>
   );

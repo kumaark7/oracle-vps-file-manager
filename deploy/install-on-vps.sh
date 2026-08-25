@@ -30,7 +30,7 @@ if ! command -v node >/dev/null 2>&1; then
 fi
 
 apt-get update
-apt-get install -y git nginx rsync
+apt-get install -y git nginx rsync python3 make g++ build-essential
 
 mkdir -p "$(dirname "$SOURCE_DIR")"
 
@@ -74,6 +74,9 @@ OVFM_PUBLIC_HOST=${PUBLIC_HOST}
 TRUST_PROXY=true
 MAX_UPLOAD_BYTES=157286400
 MAX_EDIT_BYTES=5242880
+TERMINAL_IDLE_TIMEOUT_MS=1800000
+TERMINAL_MAX_LIFETIME_MS=14400000
+TERMINAL_MAX_SESSIONS=3
 EOF
   chmod 600 "$ENV_FILE"
   echo "Created $ENV_FILE"
@@ -114,6 +117,19 @@ server {
     ssl_certificate_key /etc/letsencrypt/live/${PUBLIC_HOST}/privkey.pem;
     include /etc/letsencrypt/options-ssl-nginx.conf;
     ssl_dhparam /etc/letsencrypt/ssl-dhparams.pem;
+
+    location = /api/terminal {
+        proxy_pass http://127.0.0.1:4174;
+        proxy_http_version 1.1;
+        proxy_set_header Upgrade \$http_upgrade;
+        proxy_set_header Connection "upgrade";
+        proxy_set_header Host \$host;
+        proxy_set_header X-Real-IP \$remote_addr;
+        proxy_set_header X-Forwarded-For \$proxy_add_x_forwarded_for;
+        proxy_set_header X-Forwarded-Proto \$scheme;
+        proxy_read_timeout 14400s;
+        proxy_send_timeout 14400s;
+    }
 
     location / {
         proxy_pass http://127.0.0.1:4174;

@@ -10,6 +10,7 @@
     "test:auth-login": "node --test test/auth-login.test.cjs",
     "test:auth-totp": "node --test test/auth-totp.test.cjs",
     "test:editor": "node --test test/editor.test.cjs",
+    "test:terminal": "node --test test/terminal.test.cjs",
     "test:servers": "node --test test/servers.test.cjs",
     "servers:check": "node scripts/check-servers.cjs",
     "preview": "vite preview",
@@ -33,15 +34,22 @@
     "@codemirror/state": "^6.7.1",
     "@codemirror/view": "^6.43.9",
     "@vitejs/plugin-react": "^5.0.4",
+    "@xterm/addon-fit": "^0.11.0",
+    "@xterm/xterm": "^6.0.0",
     "lucide-react": "^0.544.0",
+    "node-pty": "^1.1.0",
     "react": "^19.1.1",
     "react-dom": "^19.1.1",
     "vite": "^7.1.7",
+    "ws": "^8.21.3",
     "yazl": "^3.3.1"
   },
   "devDependencies": {
     "autoprefixer": "^10.4.21",
     "postcss": "^8.5.6",
     "tailwindcss": "^3.4.17"
+  },
+  "allowScripts": {
+    "node-pty@1.1.0": true
   }
 }

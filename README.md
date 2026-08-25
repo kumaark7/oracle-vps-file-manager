@@ -10,6 +10,7 @@ src/
   components/          Shared application UI
   features/files/      File browser, rows, dialogs, and path helpers
   features/editor/     Lazy-loaded CodeMirror 6 text and code editor
+  features/terminal/   Lazy-loaded xterm.js browser terminal
   features/storage/    Storage usage view
   hooks/               Session and server discovery hooks
   App.jsx              Application state and feature orchestration
@@ -20,6 +21,7 @@ server/
   routes/              Auth, files, and storage HTTP routes
   services/            Comments, file normalization, and storage scanning
   auth/                 Session, recovery-code, and auth storage helpers
+  terminal/             Authenticated WebSocket and local/SSH PTY lifecycle
   auth.cjs             Password and recovery-code authentication
   config.cjs           Validated environment configuration
   servers.cjs          Local and remote server configuration
@@ -110,6 +112,9 @@ OVFM_PUBLIC_HOST=files.example.com
 TRUST_PROXY=true
 MAX_UPLOAD_BYTES=157286400
 MAX_EDIT_BYTES=5242880
+TERMINAL_IDLE_TIMEOUT_MS=1800000
+TERMINAL_MAX_LIFETIME_MS=14400000
+TERMINAL_MAX_SESSIONS=3
 ```
 
 `PASSWORD_USER` identifies the password account and defaults to `Kishore7`. `ADMIN_USER` identifies the authenticator account and defaults to `admin`. The `admin` username does not accept `ADMIN_PASSWORD`; it accepts only a valid authenticator code. `SESSION_TTL_MS`, `MAX_JSON_BYTES`, and `MAX_PROCESS_BYTES` are also configurable. Invalid numeric or boolean values fail during startup with a clear error.
@@ -199,6 +204,16 @@ Folder `Zip` creates a conflict-safe archive beside the source folder. Folder `D
 
 The toolbar copies `cd '/absolute/path'` for an existing SSH session and `ssh USER@HOST -p PORT -t "cd '/absolute/path' && exec bash -l"` for Windows OpenSSH. Server-side private-key paths are never included.
 
+## Browser Terminal
+
+The Terminal view is loaded only when selected. It opens an authenticated same-origin WebSocket at `/api/terminal`, then starts one PTY for the selected server and current file-browser directory. Local sessions run as the same unprivileged OS account as VPS Manager. Remote sessions use the existing server-side OpenSSH configuration; private-key paths and credentials never reach the browser.
+
+Terminal input and output are streamed only between the browser and PTY and are not written to application logs or storage. The local PTY receives a small allowlisted environment rather than the Node process environment, so values such as `SESSION_SECRET` and `ADMIN_PASSWORD` are excluded. Idle sessions expire after `TERMINAL_IDLE_TIMEOUT_MS`, every terminal is capped by `TERMINAL_MAX_LIFETIME_MS`, and one authenticated session may own at most `TERMINAL_MAX_SESSIONS` terminals.
+
+The configured file root validates the initial working directory. It is not a shell sandbox: after the shell starts, the selected Linux account's normal filesystem permissions determine what commands can access. Stronger confinement requires an OS-level boundary such as a container, namespace, or chroot and is outside this application.
+
+`node-pty` builds a native PTY helper during installation. Ubuntu 24.04 deployments need `python3`, `make`, `g++`, and `build-essential`; the installer includes them. The stable dependency supports Linux x86-64 and ARM64 when built on the target system.
+
 ## Security Model
 
 - The administrator can sign in through one field with the configured password or a six-digit TOTP authenticator code.
@@ -213,6 +228,8 @@ The toolbar copies `cd '/absolute/path'` for an existing SSH session and `ssh US
 - Every local and remote path is restricted to its configured root.
 - Root deletion is refused and symbolic links are not followed by storage scans.
 - SSH uses the system OpenSSH client with key authentication, `BatchMode`, a connection timeout, and configurable host, port, username, and root.
+- Terminal WebSockets require a valid `ovfm_session` cookie and an exact same-origin `Origin` header; URL authentication tokens are rejected.
+- Each disconnected, expired, logged-out, or exited terminal has its PTY or SSH process terminated immediately.
 
 `TRUST_PROXY=true` trusts `X-Forwarded-Proto` only when the direct connection comes from loopback. The supplied Nginx configurations set that header. Set `TRUST_PROXY=false` if Node is directly exposed without a local reverse proxy.
 
@@ -260,5 +277,22 @@ The installer preserves the environment file, remote-server configuration, comme
 ## Nginx
 
 The supplied Nginx configuration proxies to `127.0.0.1:4174`, sets `X-Forwarded-Proto`, and permits request bodies up to 150 MB. Keep Nginx's `client_max_body_size` aligned with `MAX_UPLOAD_BYTES`.
+
+The exact `/api/terminal` location must use HTTP/1.1 and forward WebSocket upgrade headers:
+
+```nginx
+location = /api/terminal {
+    proxy_pass http://127.0.0.1:4174;
+    proxy_http_version 1.1;
+    proxy_set_header Upgrade $http_upgrade;
+    proxy_set_header Connection "upgrade";
+    proxy_set_header Host $host;
+    proxy_set_header X-Real-IP $remote_addr;
+    proxy_set_header X-Forwarded-For $proxy_add_x_forwarded_for;
+    proxy_set_header X-Forwarded-Proto $scheme;
+    proxy_read_timeout 14400s;
+    proxy_send_timeout 14400s;
+}
+```
 
 For HTTPS, point a DNS `A` record at the VPS and use Certbot. The application itself remains bound to loopback behind Nginx.

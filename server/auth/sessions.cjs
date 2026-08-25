@@ -1,8 +1,10 @@
 const crypto = require("crypto");
+const { EventEmitter } = require("events");
 const config = require("../config.cjs");
 const { requestIsSecure } = require("../http.cjs");
 
 const sessions = new Map();
+const sessionEvents = new EventEmitter();
 const COOKIE_NAME = "ovfm_session";
 
 function parseCookies(req) {
@@ -74,23 +76,28 @@ function getSessionId(req) {
   return id;
 }
 
-function verifySession(req) {
+function verifySessionId(req) {
   const id = getSessionId(req);
 
   if (!id) {
-    return false;
+    return null;
   }
 
   const expiresAt = sessions.get(id);
 
   if (!expiresAt || expiresAt <= Date.now()) {
     sessions.delete(id);
-    return false;
+    sessionEvents.emit("destroyed", id);
+    return null;
   }
 
   sessions.set(id, Date.now() + config.sessionTtlMs);
 
-  return true;
+  return id;
+}
+
+function verifySession(req) {
+  return Boolean(verifySessionId(req));
 }
 
 function makeCookie(req, token, maxAge) {
@@ -116,7 +123,13 @@ function destroySession(req) {
 
   if (id) {
     sessions.delete(id);
+    sessionEvents.emit("destroyed", id);
   }
+}
+
+function onSessionDestroyed(listener) {
+  sessionEvents.on("destroyed", listener);
+  return () => sessionEvents.off("destroyed", listener);
 }
 
 function clearSessionCookie(req) {
@@ -126,6 +139,8 @@ function clearSessionCookie(req) {
 module.exports = {
   safeEqual,
   verifySession,
+  verifySessionId,
+  onSessionDestroyed,
   createSessionCookie,
   destroySession,
   clearSessionCookie

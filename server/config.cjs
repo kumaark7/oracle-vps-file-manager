@@ -43,6 +43,11 @@ const config = {
   maxUploadBytes: positiveInteger("MAX_UPLOAD_BYTES", 150 * 1024 * 1024),
   maxEditBytes: positiveInteger("MAX_EDIT_BYTES", 5 * 1024 * 1024),
   maxProcessBytes: positiveInteger("MAX_PROCESS_BYTES", 220 * 1024 * 1024),
+  terminalIdleTimeoutMs: positiveInteger("TERMINAL_IDLE_TIMEOUT_MS", 30 * 60 * 1000),
+  terminalMaxLifetimeMs: positiveInteger("TERMINAL_MAX_LIFETIME_MS", 4 * 60 * 60 * 1000),
+  terminalMaxSessions: positiveInteger("TERMINAL_MAX_SESSIONS", 3),
+  terminalMaxMessageBytes: positiveInteger("TERMINAL_MAX_MESSAGE_BYTES", 64 * 1024),
+  terminalMaxBufferedBytes: positiveInteger("TERMINAL_MAX_BUFFERED_BYTES", 1024 * 1024),
   commentsPath: path.resolve(process.env.OVFM_COMMENTS_PATH ||  path.join(os.homedir(), ".oracle-vps-file-manager-comments.json")),
   serversPath: path.resolve(process.env.OVFM_SERVERS_PATH || path.join(PROJECT_ROOT, ".ovfm-servers.json")),
 authDir: path.resolve(

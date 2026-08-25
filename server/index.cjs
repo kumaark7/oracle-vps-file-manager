@@ -6,6 +6,7 @@ const config = require("./config.cjs");
 const { HttpError, parseUrl, sendError } = require("./http.cjs");
 const { handleApi } = require("./routes/index.cjs");
 const { getServers } = require("./servers.cjs");
+const { attachTerminalWebSocket } = require("./terminal/websocket.cjs");
 
 const mimeTypes = {
   ".css": "text/css; charset=utf-8",
@@ -55,8 +56,8 @@ async function serveStatic(req, res) {
   }
 }
 
-function createApplicationServer() {
-  return http.createServer((req, res) => {
+function createApplicationServer(options = {}) {
+  const server = http.createServer((req, res) => {
     res.setHeader("Referrer-Policy", "same-origin");
     res.setHeader("X-Frame-Options", "DENY");
     res.setHeader("X-Content-Type-Options", "nosniff");
@@ -66,6 +67,9 @@ function createApplicationServer() {
     }
     serveStatic(req, res).catch((error) => sendError(res, error));
   });
+  const terminal = attachTerminalWebSocket(server, options.terminalOptions || {});
+  server.terminalManager = terminal.manager;
+  return server;
 }
 
 function startServer() {
