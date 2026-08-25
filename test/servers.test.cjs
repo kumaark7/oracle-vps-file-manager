@@ -15,6 +15,7 @@ process.env.PORT = "49179";
 process.env.HOST = "127.0.0.1";
 process.env.SESSION_SECRET = "test-only-session-secret-32-bytes-minimum";
 process.env.ADMIN_USER = "server-test";
+process.env.PASSWORD_USER = "server-test";
 process.env.ADMIN_PASSWORD = "server-test-password";
 
 const {

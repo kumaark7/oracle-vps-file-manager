@@ -1,6 +1,6 @@
 import { useEffect, useState } from "react";
 import { AlertTriangle, FilePlus2, Loader2, Save, Trash2 } from "lucide-react";
-import { apiPath, requestJson, requestText } from "../../api/client.js";
+import { apiPath, requestJson } from "../../api/client.js";
 import { Dialog } from "../../components/Dialog.jsx";
 import { formatBytes, parentPath } from "./fileUtils.js";
 
@@ -18,17 +18,12 @@ export function FileDialog({ dialog, serverId, currentPath, onClose, handlers })
   const [content, setContent] = useState("");
   const [details, setDetails] = useState(null);
   const [comment, setComment] = useState("");
-  const [loading, setLoading] = useState(["edit", "info"].includes(dialog.type));
+  const [loading, setLoading] = useState(dialog.type === "info");
   const [error, setError] = useState("");
 
   useEffect(() => {
     let cancelled = false;
-    if (dialog.type === "edit") {
-      requestText(apiPath("/api/read", serverId, { path: dialog.entry.path }))
-        .then((value) => { if (!cancelled) setContent(value); })
-        .catch((readError) => { if (!cancelled) setError(readError.message); })
-        .finally(() => { if (!cancelled) setLoading(false); });
-    } else if (dialog.type === "info") {
+    if (dialog.type === "info") {
       requestJson(apiPath("/api/details", serverId, { path: dialog.entry.path }))
         .then((value) => {
           if (cancelled) return;
@@ -43,7 +38,7 @@ export function FileDialog({ dialog, serverId, currentPath, onClose, handlers })
 
   const titles = {
     folder: "New folder", file: "New file", rename: "Rename item", delete: "Delete item",
-    bulkDelete: "Delete selected items", edit: `Edit ${dialog.entry?.name || "file"}`, info: `Details for ${dialog.entry?.name || "item"}`
+    bulkDelete: "Delete selected items", info: `Details for ${dialog.entry?.name || "item"}`
   };
 
   async function submit(event) {
@@ -55,7 +50,6 @@ export function FileDialog({ dialog, serverId, currentPath, onClose, handlers })
     if (dialog.type === "delete") await handlers.remove(dialog.entry);
     if (dialog.type === "bulkDelete") await handlers.deleteBulk(dialog.paths);
     if (dialog.type === "info") await handlers.saveComment(dialog.entry, comment);
-    if (dialog.type === "edit") await handlers.saveFile(dialog.entry, content);
   }
 
   const destructive = ["delete", "bulkDelete"].includes(dialog.type);
@@ -63,7 +57,7 @@ export function FileDialog({ dialog, serverId, currentPath, onClose, handlers })
     <div className="mt-5 flex justify-end gap-2">
       <button className="rounded-lg border border-slate-700 px-4 py-2 text-sm font-semibold text-slate-300" type="button" onClick={onClose}>Cancel</button>
       <button form="file-dialog-form" className={`flex items-center gap-2 rounded-lg px-4 py-2 text-sm font-bold ${destructive ? "bg-rose-400 text-slate-950" : "bg-emerald-400 text-slate-950"}`} type="submit" disabled={loading || Boolean(error)}>
-        {dialog.type === "edit" || dialog.type === "info" ? <Save size={17} /> : destructive ? <Trash2 size={17} /> : <FilePlus2 size={17} />}
+        {dialog.type === "info" ? <Save size={17} /> : destructive ? <Trash2 size={17} /> : <FilePlus2 size={17} />}
         {destructive ? "Delete" : dialog.type === "info" ? "Save Note" : "Save"}
       </button>
     </div>
@@ -84,8 +78,6 @@ export function FileDialog({ dialog, serverId, currentPath, onClose, handlers })
             <DetailRow label="Modified" value={details?.modified} /><DetailRow label="Last Used" value={details?.lastUsed} /><DetailRow label="Created Date" value={details?.created} />
             <label className="block"><span className="mb-2 block text-sm text-slate-400">Comment</span><textarea className="min-h-32 w-full resize-y rounded-lg border border-slate-700 bg-slate-950 p-3 text-sm text-slate-100 outline-none focus:border-emerald-300" value={comment} onChange={(event) => setComment(event.target.value)} placeholder="Add a note for this file or folder" /></label>
           </div>
-        ) : dialog.type === "edit" ? loading ? <Loading label="Loading file" /> : (
-          <textarea className="min-h-[360px] w-full resize-y rounded-lg border border-slate-700 bg-slate-950 p-3 font-mono text-sm text-slate-100 outline-none focus:border-emerald-300" value={content} onChange={(event) => setContent(event.target.value)} aria-label="File content" />
         ) : (
           <>
             <label className="block"><span className="mb-2 block text-sm text-slate-400">Name</span><input className="control w-full" value={name} onChange={(event) => setName(event.target.value)} autoFocus /></label>

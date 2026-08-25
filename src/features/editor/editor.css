@@ -1,0 +1,115 @@
+.editor-shell {
+  display: flex;
+  min-height: calc(100vh - 8.5rem);
+  flex-direction: column;
+  overflow: hidden;
+  border: 1px solid #1e293b;
+  border-radius: 0.5rem;
+  background: #0f172a;
+}
+
+.editor-toolbar {
+  display: flex;
+  min-height: 4.5rem;
+  align-items: center;
+  justify-content: space-between;
+  gap: 1rem;
+  border-bottom: 1px solid #1e293b;
+  padding: 0.75rem 1rem;
+}
+
+.editor-toolbar__identity,
+.editor-toolbar__actions {
+  display: flex;
+  min-width: 0;
+  align-items: center;
+  gap: 0.6rem;
+}
+
+.editor-status {
+  min-width: 4rem;
+  text-align: right;
+  font-size: 0.75rem;
+}
+
+.editor-save-button {
+  display: inline-flex;
+  height: 2.5rem;
+  align-items: center;
+  gap: 0.45rem;
+  border-radius: 0.5rem;
+  background: #34d399;
+  padding: 0 0.9rem;
+  font-size: 0.875rem;
+  font-weight: 700;
+  color: #020617;
+}
+
+.editor-save-button:disabled {
+  cursor: not-allowed;
+  opacity: 0.45;
+}
+
+.editor-mount {
+  min-height: 0;
+  flex: 1;
+}
+
+.editor-mount .cm-editor {
+  height: 100%;
+  background: #020617;
+  color: #e2e8f0;
+  font-size: 0.875rem;
+}
+
+.editor-mount .cm-scroller {
+  overflow: auto;
+  font-family: "Cascadia Code", "SFMono-Regular", Consolas, "Liberation Mono", monospace;
+}
+
+.editor-mount .cm-gutters {
+  border-right: 1px solid #1e293b;
+  background: #0b1220;
+  color: #64748b;
+}
+
+.editor-mount .cm-activeLine,
+.editor-mount .cm-activeLineGutter {
+  background: rgba(30, 41, 59, 0.62);
+}
+
+.editor-mount .cm-selectionBackground,
+.editor-mount .cm-content ::selection {
+  background: rgba(14, 165, 233, 0.3) !important;
+}
+
+.editor-message {
+  display: grid;
+  min-height: 24rem;
+  place-items: center;
+  padding: 2rem;
+  text-align: center;
+  color: #94a3b8;
+}
+
+@media (max-width: 720px) {
+  .editor-shell {
+    min-height: calc(100vh - 7rem);
+  }
+
+  .editor-toolbar {
+    align-items: flex-start;
+    flex-direction: column;
+  }
+
+  .editor-toolbar__actions {
+    width: 100%;
+    flex-wrap: wrap;
+  }
+
+  .editor-status {
+    margin-right: auto;
+    text-align: left;
+  }
+}
+

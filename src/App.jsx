@@ -1,4 +1,4 @@
-import { useEffect, useMemo, useState } from "react";
+import { lazy, Suspense, useEffect, useMemo, useState } from "react";
 import { Loader2 } from "lucide-react";
 import { apiPath, downloadUrl, folderDownloadUrl, requestJson, saveText, uploadBody } from "./api/client.js";
 import { LoginScreen } from "./components/LoginScreen.jsx";
@@ -8,8 +8,11 @@ import { FileBrowser } from "./features/files/FileBrowser.jsx";
 import { FileDialog } from "./features/files/FileDialog.jsx";
 import { cmdPathCommand, joinPath, parentPath, sortedEntries, sshPathCommand } from "./features/files/fileUtils.js";
 import { Storage } from "./features/storage/Storage.jsx";
+import { UnsavedChangesDialog } from "./features/editor/UnsavedChangesDialog.jsx";
 import { useServers } from "./hooks/useServers.js";
 import { useSession } from "./hooks/useSession.js";
+
+const CodeEditor = lazy(() => import("./features/editor/EditorView.jsx"));
 
 function emptyServerState() {
   return {
@@ -40,6 +43,9 @@ export default function App() {
   const { servers, currentServerId, setCurrentServerId, serversError } = useServers(session.authenticated, session.defaultServerId);
   const [serverStates, setServerStates] = useState({});
   const [dialog, setDialog] = useState(null);
+  const [editorSession, setEditorSession] = useState(null);
+  const [editorDirty, setEditorDirty] = useState(false);
+  const [pendingNavigation, setPendingNavigation] = useState(null);
   const currentServer = useMemo(() => servers.find((server) => server.id === currentServerId) || servers[0] || null, [servers, currentServerId]);
   const currentState = serverStates[currentServerId] || emptyServerState();
   const visibleEntries = useMemo(() => sortedEntries(currentState.entries, currentState.query), [currentState.entries, currentState.query]);
@@ -84,10 +90,58 @@ export default function App() {
     return () => window.removeEventListener("load", register);
   }, []);
 
-  async function handleLogout() {
+  async function performLogout() {
     await logout();
     setServerStates({});
     setDialog(null);
+    setEditorSession(null);
+    setEditorDirty(false);
+  }
+
+  function guardEditorNavigation(action) {
+    if (editorSession && editorDirty) {
+      setPendingNavigation({ run: action });
+      return;
+    }
+    action();
+  }
+
+  function openEditor(entry) {
+    setDialog(null);
+    setEditorDirty(false);
+    setEditorSession({
+      entry,
+      serverId: currentServerId,
+      directoryPath: currentState.currentPath
+    });
+  }
+
+  function closeEditor() {
+    const previousEditor = editorSession;
+    setEditorSession(null);
+    setEditorDirty(false);
+    if (previousEditor) void loadFiles(previousEditor.directoryPath, previousEditor.serverId);
+  }
+
+  function requestEditorClose() {
+    guardEditorNavigation(closeEditor);
+  }
+
+  function changeServer(serverId) {
+    guardEditorNavigation(() => {
+      setEditorSession(null);
+      setEditorDirty(false);
+      setDialog(null);
+      updateServerState(currentServerId, { menuFor: null });
+      setCurrentServerId(serverId);
+    });
+  }
+
+  function discardAndContinue() {
+    const action = pendingNavigation?.run;
+    setPendingNavigation(null);
+    setEditorDirty(false);
+    if (action) action();
   }
 
   async function loadStorage(serverId = currentServerId) {
@@ -214,7 +268,7 @@ export default function App() {
     }),
     select: (selected) => updateServerState(currentServerId, { selected }),
     toggleSelected: (targetPath) => updateServerState(currentServerId, (previous) => ({ ...previous, selectedPaths: previous.selectedPaths.includes(targetPath) ? previous.selectedPaths.filter((item) => item !== targetPath) : [...previous.selectedPaths, targetPath] })),
-    openEntry: (entry) => entry.type === "directory" ? loadFiles(entry.path) : setDialog({ type: "edit", entry }),
+    openEntry: (entry) => entry.type === "directory" ? loadFiles(entry.path) : openEditor(entry),
     setMenuFor: (menuFor) => updateServerState(currentServerId, { menuFor }),
     info: (entry) => setDialog({ type: "info", entry }),
     rename: (entry) => setDialog({ type: "rename", entry }),
@@ -230,7 +284,6 @@ export default function App() {
     remove: (entry) => runAction("delete", { path: entry.path }, "Item deleted"),
     deleteBulk: (paths) => runAction("delete-bulk", { paths }, `${paths.length} item${paths.length === 1 ? "" : "s"} deleted`),
     saveComment: (entry, comment) => runAction("comment", { path: entry.path, comment }, "Note saved"),
-    saveFile: (entry, content) => saveFile(entry.path, content, "File saved")
   };
 
   if (session.loading) return <main className="grid min-h-screen place-items-center bg-slate-950 text-slate-200"><div className="text-center"><Loader2 className="mx-auto mb-3 animate-spin text-emerald-300" /><p>Opening Oracle VPS File Manager</p></div></main>;
@@ -247,16 +300,31 @@ export default function App() {
   return (
     <main className="min-h-screen bg-slate-950 text-slate-100">
       <div className="mx-auto flex min-h-screen max-w-7xl flex-col px-4 py-4 sm:px-6 lg:px-8">
-        <ServerSelector servers={servers} currentServer={currentServer} currentServerId={currentServerId} currentRoot={currentState.currentRoot} onChange={(serverId) => { setDialog(null); updateServerState(currentServerId, { menuFor: null }); setCurrentServerId(serverId); }} onLogout={handleLogout} />
+        <ServerSelector servers={servers} currentServer={currentServer} currentServerId={currentServerId} currentRoot={currentState.currentRoot} onChange={changeServer} onLogout={() => guardEditorNavigation(() => { void performLogout(); })} />
         {serversError && <div className="mt-4 rounded-lg border border-rose-400/30 bg-rose-950/40 px-4 py-3 text-sm text-rose-100" role="alert">{serversError}</div>}
-        <section className="grid flex-1 gap-4 py-4 lg:grid-cols-[280px_minmax(0,1fr)]">
-          <Sidebar server={currentServer} entries={currentState.entries} onOpenPath={loadFiles} onOpenStorage={() => loadStorage()} />
-          {currentState.activeView === "storage"
-            ? <Storage server={currentServer} storage={currentState.storage} onRefresh={() => loadStorage()} onHome={() => updateServerState(currentServerId, { activeView: "files" })} />
-            : <FileBrowser state={currentState} visibleEntries={visibleEntries} allVisibleSelected={allVisibleSelected} actions={browserActions} />}
-        </section>
+        {editorSession ? (
+          <section className="flex flex-1 py-4">
+            <Suspense fallback={<div className="grid min-h-[28rem] flex-1 place-items-center rounded-lg border border-slate-800 bg-slate-900 text-slate-400"><Loader2 className="mr-2 animate-spin" />Loading editor...</div>}>
+              <CodeEditor
+                key={`${editorSession.serverId}:${editorSession.entry.path}`}
+                serverId={editorSession.serverId}
+                entry={editorSession.entry}
+                onBack={requestEditorClose}
+                onDirtyChange={setEditorDirty}
+              />
+            </Suspense>
+          </section>
+        ) : (
+          <section className="grid flex-1 gap-4 py-4 lg:grid-cols-[280px_minmax(0,1fr)]">
+            <Sidebar server={currentServer} entries={currentState.entries} onOpenPath={loadFiles} onOpenStorage={() => loadStorage()} />
+            {currentState.activeView === "storage"
+              ? <Storage server={currentServer} storage={currentState.storage} onRefresh={() => loadStorage()} onHome={() => updateServerState(currentServerId, { activeView: "files" })} />
+              : <FileBrowser state={currentState} visibleEntries={visibleEntries} allVisibleSelected={allVisibleSelected} actions={browserActions} />}
+          </section>
+        )}
       </div>
       {dialog && <FileDialog dialog={dialog} serverId={currentServerId} currentPath={currentState.currentPath} onClose={() => setDialog(null)} handlers={dialogHandlers} />}
+      {pendingNavigation && <UnsavedChangesDialog onStay={() => setPendingNavigation(null)} onDiscard={discardAndContinue} />}
     </main>
   );
 }

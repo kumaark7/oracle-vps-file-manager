@@ -1,20 +1,28 @@
-const { PassThrough } = require("stream");
+const { PassThrough, Readable } = require("stream");
 const config = require("../config.cjs");
-const { contentDisposition, HttpError, limitStream, pipeline, readJson, requireValue, sendJson } = require("../http.cjs");
+const { contentDisposition, HttpError, limitStream, pipeline, readBuffer, readJson, requireValue, sendJson } = require("../http.cjs");
 const { getDetails, listFiles } = require("../services/files.cjs");
+const { assertEditablePath, decodeEditableBuffer, readEditableText } = require("../services/editor.cjs");
 const { setComment } = require("../services/comments.cjs");
 
 async function parseActionBody(req) {
   return readJson(req, config.maxJsonBytes);
 }
 
-async function writeRequest(req, adapter, remotePath) {
+async function writeRequest(req, adapter, remotePath, maxBytes = config.maxUploadBytes) {
   const declaredLength = Number(req.headers["content-length"] || 0);
-  if (declaredLength > config.maxUploadBytes) throw new HttpError(413, "Upload is too large");
-  const limited = limitStream(config.maxUploadBytes);
+  if (declaredLength > maxBytes) throw new HttpError(413, maxBytes === config.maxEditBytes ? "File is too large to edit in the browser" : "Upload is too large");
+  const limited = limitStream(maxBytes);
   const pass = new PassThrough();
   const upload = adapter.write(remotePath, pass);
   await Promise.all([pipeline(req, limited, pass), upload]);
+}
+
+async function writeEditableRequest(req, adapter, remotePath) {
+  assertEditablePath(remotePath);
+  const content = await readBuffer(req, config.maxEditBytes);
+  decodeEditableBuffer(content, remotePath);
+  await adapter.write(remotePath, Readable.from(content));
 }
 
 async function sendDownload(res, download) {
@@ -54,7 +62,8 @@ async function handleFilesRoute(req, res, requestUrl, server, adapter) {
     return true;
   }
   if (req.method === "GET" && pathname === "/api/read") {
-    const content = await adapter.readBuffer(requireValue(remotePath, "path"), config.maxEditBytes);
+    const editablePath = requireValue(remotePath, "path");
+    const content = Buffer.from(await readEditableText(adapter, editablePath, config.maxEditBytes), "utf8");
     res.writeHead(200, {
       "Content-Type": "text/plain; charset=utf-8",
       "Content-Length": content.length,
@@ -79,8 +88,14 @@ async function handleFilesRoute(req, res, requestUrl, server, adapter) {
     await sendDownload(res, await adapter.downloadFolder(requireValue(remotePath, "path")));
     return true;
   }
-  if (req.method === "POST" && ["/api/upload", "/api/save"].includes(pathname)) {
+  if (req.method === "POST" && pathname === "/api/upload") {
     await writeRequest(req, adapter, requireValue(remotePath, "path"));
+    sendJson(res, 200, { ok: true });
+    return true;
+  }
+  if (req.method === "POST" && pathname === "/api/save") {
+    const editablePath = requireValue(remotePath, "path");
+    await writeEditableRequest(req, adapter, editablePath);
     sendJson(res, 200, { ok: true });
     return true;
   }

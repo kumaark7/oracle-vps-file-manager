@@ -9,6 +9,7 @@ src/
   api/                 Browser API client and streaming helpers
   components/          Shared application UI
   features/files/      File browser, rows, dialogs, and path helpers
+  features/editor/     Lazy-loaded CodeMirror 6 text and code editor
   features/storage/    Storage usage view
   hooks/               Session and server discovery hooks
   App.jsx              Application state and feature orchestration
