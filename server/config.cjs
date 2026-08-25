@@ -35,6 +35,7 @@ const config = {
   host: process.env.HOST || "127.0.0.1",
   fileRoot: path.resolve(defaultRoot),
   adminUser: process.env.ADMIN_USER || "admin",
+  passwordUser: process.env.PASSWORD_USER || "Kishore7",
   adminPassword: process.env.ADMIN_PASSWORD || "",
   sessionSecret: process.env.SESSION_SECRET || crypto.randomBytes(32).toString("hex"),
   sessionTtlMs: positiveInteger("SESSION_TTL_MS", 12 * 60 * 60 * 1000),

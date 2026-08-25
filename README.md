@@ -100,6 +100,7 @@ PORT=4174
 HOST=127.0.0.1
 FILE_ROOT=/home/ubuntu
 ADMIN_USER=admin
+PASSWORD_USER=Kishore7
 ADMIN_PASSWORD=change-this-long-password
 SESSION_SECRET=change-this-random-value-with-at-least-32-characters
 OVFM_SERVERS_PATH=/etc/oracle-vps-file-manager-servers.json
@@ -110,7 +111,7 @@ MAX_UPLOAD_BYTES=157286400
 MAX_EDIT_BYTES=5242880
 ```
 
-`SESSION_TTL_MS`, `MAX_JSON_BYTES`, and `MAX_PROCESS_BYTES` are also configurable. Invalid numeric or boolean values fail during startup with a clear error.
+`PASSWORD_USER` identifies the password account and defaults to `Kishore7`. `ADMIN_USER` identifies the authenticator account and defaults to `admin`. The `admin` username does not accept `ADMIN_PASSWORD`; it accepts only a valid authenticator code. `SESSION_TTL_MS`, `MAX_JSON_BYTES`, and `MAX_PROCESS_BYTES` are also configurable. Invalid numeric or boolean values fail during startup with a clear error.
 
 ## Adding Another Server
 

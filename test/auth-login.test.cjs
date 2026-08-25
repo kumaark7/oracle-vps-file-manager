@@ -17,6 +17,7 @@ process.env.PORT = "49181";
 process.env.HOST = "127.0.0.1";
 process.env.SESSION_SECRET = "test-only-session-secret-32-bytes-minimum";
 process.env.ADMIN_USER = "auth-test";
+process.env.PASSWORD_USER = "Kishore7";
 process.env.ADMIN_PASSWORD = "password-fallback-test";
 process.env.TRUST_PROXY = "true";
 
@@ -81,7 +82,7 @@ test.after(async () => {
 
 test("keeps password authentication available", async () => {
   const response = await post("/api/login", {
-    username: process.env.ADMIN_USER,
+    username: process.env.PASSWORD_USER,
     password: process.env.ADMIN_PASSWORD
   });
 
@@ -89,8 +90,28 @@ test("keeps password authentication available", async () => {
   assert.match(response.headers.get("set-cookie"), /ovfm_session=/);
 });
 
+test("does not accept the password for the authenticator username", async () => {
+  const response = await post("/api/login", {
+    username: process.env.ADMIN_USER,
+    password: process.env.ADMIN_PASSWORD
+  });
+
+  assert.equal(response.status, 401);
+});
+
 test("accepts an authenticator code through the password field", async () => {
   const code = generateTotpCode(totpSecret);
+  const decoyResponse = await post(
+    "/api/login",
+    {
+      username: "Admin",
+      password: code
+    },
+    "203.0.113.4"
+  );
+
+  assert.equal(decoyResponse.status, 401);
+
   const response = await post(
     "/api/login",
     {

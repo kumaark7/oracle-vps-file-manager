@@ -10,7 +10,7 @@ import {
 
 export function LoginScreen({ onLogin, onRecoveryLogin, initialError = "" }) {
   const [mode, setMode] = useState("credential");
-  const [username, setUsername] = useState("admin");
+  const [username, setUsername] = useState("Admin");
   const [credential, setCredential] = useState("");
   const [recoveryCode, setRecoveryCode] = useState("");
   const [showCredential, setShowCredential] = useState(false);

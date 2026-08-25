@@ -30,12 +30,12 @@ const totpAttempts = createAttemptLimiter({
   blockMs: 15 * 60 * 1000
 });
 
-function sendAuthenticated(req, res) {
+function sendAuthenticated(req, res, username = config.adminUser) {
   res.setHeader("Set-Cookie", createSessionCookie(req));
 
   sendJson(res, 200, {
     ok: true,
-    username: config.adminUser
+    username
   });
 }
 
@@ -43,16 +43,19 @@ async function login(req, res, body) {
   const username = String(body.username || "");
   const credential = String(body.password || "");
 
-  if (!safeEqual(username, config.adminUser)) {
-    throw new HttpError(401, "Invalid username or credential");
-  }
-
-  if (config.adminPassword && safeEqual(credential, config.adminPassword)) {
-    sendAuthenticated(req, res);
+  if (
+    safeEqual(username, config.passwordUser) &&
+    config.adminPassword &&
+    safeEqual(credential, config.adminPassword)
+  ) {
+    sendAuthenticated(req, res, config.passwordUser);
     return;
   }
 
-  if (/^\d{6}$/.test(credential.trim())) {
+  if (
+    safeEqual(username, config.adminUser) &&
+    /^\d{6}$/.test(credential.trim())
+  ) {
     const attemptKey = requestClientAddress(req, config.trustProxy);
 
     if (!totpAttempts.take(attemptKey)) {
@@ -61,7 +64,7 @@ async function login(req, res, body) {
 
     if (await verifyAndConsumeTotp(credential)) {
       totpAttempts.reset(attemptKey);
-      sendAuthenticated(req, res);
+      sendAuthenticated(req, res, config.adminUser);
       return;
     }
   }
