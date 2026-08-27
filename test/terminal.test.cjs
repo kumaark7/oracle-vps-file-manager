@@ -28,6 +28,7 @@ const {
   resolveStartDirectory,
   validDimensions
 } = require("../server/terminal/manager.cjs");
+const { heartbeatSweep, markWebSocketAlive } = require("../server/terminal/websocket.cjs");
 
 class FakeSocket extends EventEmitter {
   constructor() {
@@ -36,6 +37,8 @@ class FakeSocket extends EventEmitter {
     this.bufferedAmount = 0;
     this.messages = [];
     this.closeCode = null;
+    this.pingCount = 0;
+    this.terminated = false;
   }
 
   send(payload) { this.messages.push(JSON.parse(payload)); }
@@ -44,6 +47,11 @@ class FakeSocket extends EventEmitter {
     this.closeCode = code;
     this.readyState = WebSocket.CLOSED;
     this.emit("close");
+  }
+  ping() { this.pingCount += 1; }
+  terminate() {
+    this.terminated = true;
+    this.close(1006);
   }
 }
 
@@ -200,23 +208,70 @@ test("kills the terminal on disconnect and enforces a session limit", async () =
   manager.close();
 });
 
+test("supports simultaneous terminals and closing one leaves the other alive", async () => {
+  const terminals = [fakeTerminal(), fakeTerminal()];
+  let index = 0;
+  const manager = new TerminalManager(managerOptions({
+    maxSessions: 6,
+    spawnTerminal: async () => terminals[index++]
+  }));
+  const first = new FakeSocket();
+  const second = new FakeSocket();
+  manager.accept(first, "multi-session");
+  manager.accept(second, "multi-session");
+  init(first);
+  init(second);
+  await waitFor(() => first.messages.some((message) => message.type === "ready") && second.messages.some((message) => message.type === "ready"));
+
+  first.close(1000);
+
+  assert.equal(terminals[0].killed, true);
+  assert.equal(terminals[1].killed, false);
+  assert.equal(second.readyState, WebSocket.OPEN);
+  assert.equal(manager.sessionCounts.get("multi-session"), 1);
+  manager.close();
+  assert.equal(terminals[1].killed, true);
+});
+
 test("kills terminals when the authenticated session is destroyed", async () => {
   const request = { headers: {}, socket: { encrypted: false, remoteAddress: "127.0.0.1" } };
   request.headers.cookie = createSessionCookie(request).split(";", 1)[0];
   const sessionId = verifySessionId(request);
-  const terminal = fakeTerminal();
-  const manager = new TerminalManager(managerOptions({ spawnTerminal: async () => terminal }));
-  const socket = new FakeSocket();
-  manager.accept(socket, sessionId);
-  init(socket);
-  await waitFor(() => socket.messages.some((message) => message.type === "ready"));
+  const terminals = [fakeTerminal(), fakeTerminal()];
+  let index = 0;
+  const manager = new TerminalManager(managerOptions({ spawnTerminal: async () => terminals[index++] }));
+  const sockets = [new FakeSocket(), new FakeSocket()];
+  for (const socket of sockets) {
+    manager.accept(socket, sessionId);
+    init(socket);
+  }
+  await waitFor(() => sockets.every((socket) => socket.messages.some((message) => message.type === "ready")));
 
   destroySession(request);
 
-  assert.equal(terminal.killed, true);
-  assert.equal(socket.readyState, WebSocket.CLOSED);
-  assert.ok(socket.messages.some((message) => message.message === "Terminal session ended"));
+  assert.ok(terminals.every((terminal) => terminal.killed));
+  assert.ok(sockets.every((socket) => socket.readyState === WebSocket.CLOSED));
+  assert.ok(sockets.every((socket) => socket.messages.some((message) => message.message === "Terminal session ended")));
   manager.close();
+});
+
+test("WebSocket heartbeat preserves responsive clients and terminates only dead clients", () => {
+  const live = new FakeSocket();
+  const dead = new FakeSocket();
+  markWebSocketAlive(live);
+  markWebSocketAlive(dead);
+  const webSocketServer = { clients: new Set([live, dead]) };
+
+  heartbeatSweep(webSocketServer, { warn() {} });
+  assert.equal(live.pingCount, 1);
+  assert.equal(dead.pingCount, 1);
+  live.emit("pong");
+
+  heartbeatSweep(webSocketServer, { warn() {} });
+  assert.equal(live.terminated, false);
+  assert.equal(live.pingCount, 2);
+  assert.equal(dead.terminated, true);
+  assert.equal(live.readyState, WebSocket.OPEN);
 });
 
 test("enforces idle timeout and maximum lifetime", async () => {
@@ -299,5 +354,15 @@ test("WebSocket upgrade requires a valid session and same origin", async () => {
     }), 403);
   } finally {
     await new Promise((resolve) => server.close(resolve));
+  }
+});
+
+test("Nginx examples keep terminal WebSockets long-lived and scoped", async () => {
+  for (const filename of ["nginx-domain.conf", "nginx-ip.conf"]) {
+    const contents = await fsp.readFile(path.join(process.cwd(), "deploy", filename), "utf8");
+    assert.match(contents, /location = \/api\/terminal/);
+    assert.match(contents, /proxy_set_header Upgrade \$http_upgrade/);
+    assert.match(contents, /proxy_read_timeout 7200s/);
+    assert.match(contents, /proxy_send_timeout 7200s/);
   }
 });

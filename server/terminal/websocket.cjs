@@ -1,4 +1,4 @@
-const { WebSocketServer } = require("ws");
+const { WebSocket, WebSocketServer } = require("ws");
 const config = require("../config.cjs");
 const { requestIsSecure } = require("../http.cjs");
 const { verifySessionId } = require("../auth/sessions.cjs");
@@ -39,6 +39,35 @@ function logLifecycle(logger, level, message, details) {
   else write.call(logger, message, details);
 }
 
+function markWebSocketAlive(socket) {
+  socket.isAlive = true;
+  socket.on("pong", () => { socket.isAlive = true; });
+}
+
+function heartbeatSweep(webSocketServer, logger = console) {
+  for (const socket of webSocketServer.clients) {
+    if (socket.readyState !== WebSocket.OPEN) continue;
+    if (socket.isAlive === false) {
+      logLifecycle(logger, "warn", "terminal websocket heartbeat failed");
+      socket.terminate();
+      continue;
+    }
+    socket.isAlive = false;
+    try {
+      socket.ping();
+    } catch {
+      socket.terminate();
+    }
+  }
+}
+
+function startHeartbeat(webSocketServer, intervalMs, logger = console) {
+  webSocketServer.on("connection", markWebSocketAlive);
+  const timer = setInterval(() => heartbeatSweep(webSocketServer, logger), intervalMs);
+  timer.unref?.();
+  return () => clearInterval(timer);
+}
+
 function attachTerminalWebSocket(httpServer, options = {}) {
   const logger = options.logger || console;
   const manager = options.manager || new TerminalManager(options);
@@ -47,6 +76,11 @@ function attachTerminalWebSocket(httpServer, options = {}) {
     maxPayload: options.maxMessageBytes || config.terminalMaxMessageBytes,
     perMessageDeflate: false
   });
+  const stopHeartbeat = startHeartbeat(
+    webSocketServer,
+    options.heartbeatMs || config.terminalHeartbeatMs,
+    logger
+  );
 
   const upgrade = (req, socket, head) => {
     logLifecycle(logger, "info", "terminal websocket upgrade requested");
@@ -84,6 +118,7 @@ function attachTerminalWebSocket(httpServer, options = {}) {
   webSocketServer.on("connection", (socket, req, sessionId) => manager.accept(socket, sessionId));
   httpServer.on("upgrade", upgrade);
   httpServer.on("close", () => {
+    stopHeartbeat();
     manager.close();
     webSocketServer.close();
   });
@@ -91,4 +126,12 @@ function attachTerminalWebSocket(httpServer, options = {}) {
   return { manager, webSocketServer };
 }
 
-module.exports = { attachTerminalWebSocket, expectedOrigin, originAllowed, rejectUpgrade };
+module.exports = {
+  attachTerminalWebSocket,
+  expectedOrigin,
+  heartbeatSweep,
+  markWebSocketAlive,
+  originAllowed,
+  rejectUpgrade,
+  startHeartbeat
+};

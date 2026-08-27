@@ -13,7 +13,7 @@ import { useServers } from "./hooks/useServers.js";
 import { useSession } from "./hooks/useSession.js";
 
 const CodeEditor = lazy(() => import("./features/editor/EditorView.jsx"));
-const TerminalView = lazy(() => import("./features/terminal/TerminalView.jsx"));
+const TerminalWorkspace = lazy(() => import("./features/terminal/TerminalWorkspace.jsx"));
 
 function emptyServerState() {
   return {
@@ -47,6 +47,9 @@ export default function App() {
   const [editorSession, setEditorSession] = useState(null);
   const [editorDirty, setEditorDirty] = useState(false);
   const [pendingNavigation, setPendingNavigation] = useState(null);
+  const [terminalWorkspaceLoaded, setTerminalWorkspaceLoaded] = useState(false);
+  const [terminalVisible, setTerminalVisible] = useState(false);
+  const [terminalOpenRequest, setTerminalOpenRequest] = useState(null);
   const currentServer = useMemo(() => servers.find((server) => server.id === currentServerId) || servers[0] || null, [servers, currentServerId]);
   const currentState = serverStates[currentServerId] || emptyServerState();
   const visibleEntries = useMemo(() => sortedEntries(currentState.entries, currentState.query), [currentState.entries, currentState.query]);
@@ -97,6 +100,21 @@ export default function App() {
     setDialog(null);
     setEditorSession(null);
     setEditorDirty(false);
+    setTerminalVisible(false);
+    setTerminalWorkspaceLoaded(false);
+    setTerminalOpenRequest(null);
+  }
+
+  function openTerminal() {
+    setDialog(null);
+    updateServerState(currentServerId, { menuFor: null });
+    setTerminalWorkspaceLoaded(true);
+    setTerminalVisible(true);
+    setTerminalOpenRequest((current) => ({
+      nonce: (current?.nonce || 0) + 1,
+      serverId: currentServerId,
+      path: currentState.currentPath
+    }));
   }
 
   function guardEditorNavigation(action) {
@@ -303,7 +321,28 @@ export default function App() {
       <div className="mx-auto flex min-h-screen max-w-7xl flex-col px-4 py-4 sm:px-6 lg:px-8">
         <ServerSelector servers={servers} currentServer={currentServer} currentServerId={currentServerId} currentRoot={currentState.currentRoot} onChange={changeServer} onLogout={() => guardEditorNavigation(() => { void performLogout(); })} />
         {serversError && <div className="mt-4 rounded-lg border border-rose-400/30 bg-rose-950/40 px-4 py-3 text-sm text-rose-100" role="alert">{serversError}</div>}
-        {editorSession ? (
+        {terminalWorkspaceLoaded && (
+          <section className={`dashboard-layout dashboard-layout--terminal grid flex-1 gap-4 py-4 lg:grid-cols-[280px_minmax(0,1fr)] ${terminalVisible && !editorSession ? "" : "terminal-dashboard--hidden"}`}>
+            <Sidebar
+              server={currentServer}
+              entries={currentState.entries}
+              onOpenPath={(targetPath) => { setTerminalVisible(false); void loadFiles(targetPath); }}
+              onOpenStorage={() => { setTerminalVisible(false); void loadStorage(); }}
+              onOpenTerminal={openTerminal}
+            />
+            <Suspense fallback={<div className="grid min-h-[28rem] place-items-center rounded-lg border border-slate-800 bg-slate-900 text-slate-400"><Loader2 className="animate-spin" /></div>}>
+              <TerminalWorkspace
+                servers={servers}
+                currentServerId={currentServerId}
+                currentPath={currentState.currentPath}
+                openRequest={terminalOpenRequest}
+                visible={terminalVisible && !editorSession}
+                onBack={() => setTerminalVisible(false)}
+              />
+            </Suspense>
+          </section>
+        )}
+        {!terminalVisible && editorSession ? (
           <section className="flex flex-1 py-4">
             <Suspense fallback={<div className="grid min-h-[28rem] flex-1 place-items-center rounded-lg border border-slate-800 bg-slate-900 text-slate-400"><Loader2 className="mr-2 animate-spin" />Loading editor...</div>}>
               <CodeEditor
@@ -315,30 +354,20 @@ export default function App() {
               />
             </Suspense>
           </section>
-        ) : (
-          <section className={`dashboard-layout grid flex-1 gap-4 py-4 lg:grid-cols-[280px_minmax(0,1fr)] ${currentState.activeView === "terminal" ? "dashboard-layout--terminal" : ""}`}>
+        ) : !terminalVisible ? (
+          <section className="dashboard-layout grid flex-1 gap-4 py-4 lg:grid-cols-[280px_minmax(0,1fr)]">
             <Sidebar
               server={currentServer}
               entries={currentState.entries}
               onOpenPath={loadFiles}
               onOpenStorage={() => loadStorage()}
-              onOpenTerminal={() => updateServerState(currentServerId, { activeView: "terminal", menuFor: null })}
+              onOpenTerminal={openTerminal}
             />
-            {currentState.activeView === "terminal"
-              ? <Suspense fallback={<div className="grid min-h-[28rem] place-items-center rounded-lg border border-slate-800 bg-slate-900 text-slate-400"><Loader2 className="animate-spin" /></div>}>
-                  <TerminalView
-                    key={`${currentServerId}:${currentState.currentPath}`}
-                    server={currentServer}
-                    serverId={currentServerId}
-                    path={currentState.currentPath}
-                    onBack={() => updateServerState(currentServerId, { activeView: "files" })}
-                  />
-                </Suspense>
-              : currentState.activeView === "storage"
+            {currentState.activeView === "storage"
               ? <Storage server={currentServer} storage={currentState.storage} onRefresh={() => loadStorage()} onHome={() => updateServerState(currentServerId, { activeView: "files" })} />
               : <FileBrowser state={currentState} visibleEntries={visibleEntries} allVisibleSelected={allVisibleSelected} actions={browserActions} />}
           </section>
-        )}
+        ) : null}
       </div>
       {dialog && <FileDialog dialog={dialog} serverId={currentServerId} currentPath={currentState.currentPath} onClose={() => setDialog(null)} handlers={dialogHandlers} />}
       {pendingNavigation && <UnsavedChangesDialog onStay={() => setPendingNavigation(null)} onDiscard={discardAndContinue} />}

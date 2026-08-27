@@ -74,9 +74,10 @@ OVFM_PUBLIC_HOST=${PUBLIC_HOST}
 TRUST_PROXY=true
 MAX_UPLOAD_BYTES=157286400
 MAX_EDIT_BYTES=5242880
-TERMINAL_IDLE_TIMEOUT_MS=1800000
-TERMINAL_MAX_LIFETIME_MS=14400000
-TERMINAL_MAX_SESSIONS=3
+TERMINAL_IDLE_TIMEOUT_MS=7200000
+TERMINAL_MAX_LIFETIME_MS=43200000
+TERMINAL_MAX_SESSIONS=6
+TERMINAL_HEARTBEAT_MS=25000
 EOF
   chmod 600 "$ENV_FILE"
   echo "Created $ENV_FILE"
@@ -127,8 +128,8 @@ server {
         proxy_set_header X-Real-IP \$remote_addr;
         proxy_set_header X-Forwarded-For \$proxy_add_x_forwarded_for;
         proxy_set_header X-Forwarded-Proto \$scheme;
-        proxy_read_timeout 14400s;
-        proxy_send_timeout 14400s;
+        proxy_read_timeout 7200s;
+        proxy_send_timeout 7200s;
     }
 
     location / {

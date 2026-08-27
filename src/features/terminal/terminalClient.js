@@ -119,6 +119,7 @@ export function createTerminalClient({ element, serverId, path, onState }) {
 
   return {
     focus: () => terminal.focus(),
+    fit: () => fit(true),
     dispose() {
       disposed = true;
       connected = false;

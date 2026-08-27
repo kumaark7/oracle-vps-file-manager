@@ -18,6 +18,8 @@ async function spawnSshTerminal({ server, cwd, cols, rows }) {
     "-p", String(server.port),
     "-o", "BatchMode=yes",
     "-o", "ConnectTimeout=15",
+    "-o", "ServerAliveInterval=25",
+    "-o", "ServerAliveCountMax=3",
     "-o", "StrictHostKeyChecking=accept-new",
     "-o", "LogLevel=ERROR",
     `${server.username}@${server.host}`,

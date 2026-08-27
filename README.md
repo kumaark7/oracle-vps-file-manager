@@ -112,9 +112,10 @@ OVFM_PUBLIC_HOST=files.example.com
 TRUST_PROXY=true
 MAX_UPLOAD_BYTES=157286400
 MAX_EDIT_BYTES=5242880
-TERMINAL_IDLE_TIMEOUT_MS=1800000
-TERMINAL_MAX_LIFETIME_MS=14400000
-TERMINAL_MAX_SESSIONS=3
+TERMINAL_IDLE_TIMEOUT_MS=7200000
+TERMINAL_MAX_LIFETIME_MS=43200000
+TERMINAL_MAX_SESSIONS=6
+TERMINAL_HEARTBEAT_MS=25000
 ```
 
 `PASSWORD_USER` identifies the password account and defaults to `Kishore7`. `ADMIN_USER` identifies the authenticator account and defaults to `admin`. The `admin` username does not accept `ADMIN_PASSWORD`; it accepts only a valid authenticator code. `SESSION_TTL_MS`, `MAX_JSON_BYTES`, and `MAX_PROCESS_BYTES` are also configurable. Invalid numeric or boolean values fail during startup with a clear error.
@@ -206,9 +207,9 @@ The toolbar copies `cd '/absolute/path'` for an existing SSH session and `ssh US
 
 ## Browser Terminal
 
-The Terminal view is loaded only when selected. It opens an authenticated same-origin WebSocket at `/api/terminal`, then starts one PTY for the selected server and current file-browser directory. Local sessions run as the same unprivileged OS account as VPS Manager. Remote sessions use the existing server-side OpenSSH configuration; private-key paths and credentials never reach the browser.
+The Terminal workspace is loaded only when selected. Each tab opens its own authenticated same-origin WebSocket at `/api/terminal` and starts one PTY for its selected server and starting directory. Inactive tabs remain mounted and connected while the page stays open; closing a tab closes only that tab's socket and PTY. Local sessions run as the same unprivileged OS account as VPS Manager. Remote sessions use the existing server-side OpenSSH configuration; private-key paths and credentials never reach the browser.
 
-Terminal input and output are streamed only between the browser and PTY and are not written to application logs or storage. The local PTY receives a small allowlisted environment rather than the Node process environment, so values such as `SESSION_SECRET` and `ADMIN_PASSWORD` are excluded. Idle sessions expire after `TERMINAL_IDLE_TIMEOUT_MS`, every terminal is capped by `TERMINAL_MAX_LIFETIME_MS`, and one authenticated session may own at most `TERMINAL_MAX_SESSIONS` terminals.
+Terminal input and output are streamed only between the browser and PTY and are not written to application logs or storage. The local PTY receives a small allowlisted environment rather than the Node process environment, so values such as `SESSION_SECRET` and `ADMIN_PASSWORD` are excluded. Idle sessions expire after `TERMINAL_IDLE_TIMEOUT_MS` (two hours by default), every terminal is capped by `TERMINAL_MAX_LIFETIME_MS` (12 hours by default), and one authenticated session may own at most `TERMINAL_MAX_SESSIONS` terminals (six by default). The server sends WebSocket ping frames every `TERMINAL_HEARTBEAT_MS` to clean up dead connections without counting heartbeat traffic as terminal activity.
 
 The configured file root validates the initial working directory. It is not a shell sandbox: after the shell starts, the selected Linux account's normal filesystem permissions determine what commands can access. Stronger confinement requires an OS-level boundary such as a container, namespace, or chroot and is outside this application.
 
@@ -290,8 +291,8 @@ location = /api/terminal {
     proxy_set_header X-Real-IP $remote_addr;
     proxy_set_header X-Forwarded-For $proxy_add_x_forwarded_for;
     proxy_set_header X-Forwarded-Proto $scheme;
-    proxy_read_timeout 14400s;
-    proxy_send_timeout 14400s;
+    proxy_read_timeout 7200s;
+    proxy_send_timeout 7200s;
 }
 ```
 
