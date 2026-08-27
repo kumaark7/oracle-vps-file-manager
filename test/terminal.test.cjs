@@ -96,6 +96,7 @@ function managerOptions(overrides = {}) {
     spawnTerminal: async () => fakeTerminal(),
     idleTimeoutMs: 2_000,
     maxLifetimeMs: 4_000,
+    logger: { info() {}, warn() {}, error() {} },
     ...overrides
   };
 }
@@ -280,6 +281,22 @@ test("WebSocket upgrade requires a valid session and same origin", async () => {
     assert.equal(await rejectedStatus(url, { origin: "https://malicious.example", headers: { Cookie: cookie } }), 403);
     assert.equal(await rejectedStatus(`${url}?token=forbidden`, { origin, headers: { Cookie: cookie } }), 404);
     assert.equal(await rejectedStatus(url, { origin, headers: { Cookie: cookie } }), 101);
+    assert.equal(await rejectedStatus(url, {
+      origin: "https://files.projectdarkhope.xyz",
+      headers: {
+        Cookie: cookie,
+        Host: "files.projectdarkhope.xyz",
+        "X-Forwarded-Proto": "https"
+      }
+    }), 101);
+    assert.equal(await rejectedStatus(url, {
+      origin: "https://evil.example",
+      headers: {
+        Cookie: cookie,
+        Host: "files.projectdarkhope.xyz",
+        "X-Forwarded-Proto": "https"
+      }
+    }), 403);
   } finally {
     await new Promise((resolve) => server.close(resolve));
   }

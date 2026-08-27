@@ -71,6 +71,7 @@ class TerminalManager {
     this.maxSessions = options.maxSessions || config.terminalMaxSessions;
     this.maxMessageBytes = options.maxMessageBytes || config.terminalMaxMessageBytes;
     this.maxBufferedBytes = options.maxBufferedBytes || config.terminalMaxBufferedBytes;
+    this.logger = options.logger || console;
     this.active = new Set();
     this.sessionCounts = new Map();
     this.unsubscribeSession = onSessionDestroyed((sessionId) => this.closeForSession(sessionId));
@@ -79,6 +80,7 @@ class TerminalManager {
   accept(socket, sessionId) {
     const count = this.sessionCounts.get(sessionId) || 0;
     if (count >= this.maxSessions) {
+      this.log("warn", "terminal connection rejected", { reason: "session limit" });
       this.send(socket, { type: "error", message: "Terminal session limit reached" });
       socket.close(1008, "Session limit reached");
       return null;
@@ -99,9 +101,22 @@ class TerminalManager {
     state.lifetimeTimer = setTimeout(() => this.expire(state, "Terminal maximum lifetime reached"), this.maxLifetimeMs);
 
     socket.on("message", (raw) => { void this.handleMessage(state, raw); });
-    socket.on("close", () => this.cleanup(state));
-    socket.on("error", () => this.cleanup(state));
+    socket.on("close", () => {
+      this.log("info", "terminal socket closed");
+      this.cleanup(state);
+    });
+    socket.on("error", () => {
+      this.log("warn", "terminal socket error");
+      this.cleanup(state);
+    });
     return state;
+  }
+
+  log(level, message, details) {
+    const write = this.logger?.[level] || this.logger?.info;
+    if (typeof write !== "function") return;
+    if (details === undefined) write.call(this.logger, message);
+    else write.call(this.logger, message, details);
   }
 
   send(socket, message) {
@@ -115,12 +130,14 @@ class TerminalManager {
 
   expire(state, message) {
     if (state.closed) return;
+    this.log("info", "terminal session closed by policy", { reason: message });
     this.send(state.socket, { type: "error", message });
     this.cleanup(state);
     state.socket.close(1000, "Terminal closed");
   }
 
   protocolError(state, message = "Invalid terminal message") {
+    this.log("warn", "terminal protocol rejected", { reason: message });
     this.send(state.socket, { type: "error", message });
     this.cleanup(state);
     state.socket.close(1008, "Protocol error");
@@ -145,6 +162,14 @@ class TerminalManager {
       let server;
       try {
         server = await this.getServer(message.serverId);
+      } catch {
+        this.log("warn", "terminal initialization rejected", { reason: "invalid server" });
+        this.send(state.socket, { type: "error", message: "Terminal session failed to start" });
+        this.cleanup(state);
+        state.socket.close(1008, "Invalid server");
+        return;
+      }
+      try {
         const cwd = await resolveStartDirectory(server, message.path, this.adapterFactory);
         const terminal = await this.spawnTerminal({ server, cwd, cols: message.cols, rows: message.rows });
         if (state.closed) {
@@ -152,6 +177,7 @@ class TerminalManager {
           return;
         }
         state.pty = terminal;
+        this.log("info", "terminal PTY started", { serverId: server.id, kind: server.kind });
         terminal.onData((data) => {
           if (state.closed) return;
           this.resetIdle(state);
@@ -163,6 +189,7 @@ class TerminalManager {
         });
         terminal.onExit(({ exitCode }) => {
           if (state.closed) return;
+          this.log("info", "terminal process exited", { serverId: server.id, code: Number.isInteger(exitCode) ? exitCode : null });
           this.send(state.socket, { type: "exit", code: Number.isInteger(exitCode) ? exitCode : null });
           this.cleanup(state);
           state.socket.close(1000, "Terminal exited");
@@ -170,6 +197,7 @@ class TerminalManager {
         this.resetIdle(state);
         this.send(state.socket, { type: "ready" });
       } catch {
+        this.log("warn", "terminal initialization failed", { serverId: server.id, kind: server.kind });
         this.send(state.socket, { type: "error", message: server?.kind === "ssh" ? "SSH connection failed" : "Terminal session failed to start" });
         this.cleanup(state);
         state.socket.close(1011, "Terminal start failed");

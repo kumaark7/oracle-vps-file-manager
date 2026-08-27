@@ -32,7 +32,15 @@ function rejectUpgrade(socket, status, message) {
   );
 }
 
+function logLifecycle(logger, level, message, details) {
+  const write = logger?.[level] || logger?.info;
+  if (typeof write !== "function") return;
+  if (details === undefined) write.call(logger, message);
+  else write.call(logger, message, details);
+}
+
 function attachTerminalWebSocket(httpServer, options = {}) {
+  const logger = options.logger || console;
   const manager = options.manager || new TerminalManager(options);
   const webSocketServer = new WebSocketServer({
     noServer: true,
@@ -41,28 +49,34 @@ function attachTerminalWebSocket(httpServer, options = {}) {
   });
 
   const upgrade = (req, socket, head) => {
+    logLifecycle(logger, "info", "terminal websocket upgrade requested");
     let requestUrl;
     try {
       requestUrl = new URL(req.url, `http://${req.headers.host || "localhost"}`);
     } catch {
+      logLifecycle(logger, "warn", "terminal websocket upgrade rejected", { status: 400, reason: "invalid request URL" });
       rejectUpgrade(socket, 400, "Bad Request");
       return;
     }
     if (requestUrl.pathname !== "/api/terminal" || requestUrl.search) {
+      logLifecycle(logger, "warn", "terminal websocket upgrade rejected", { status: 404, reason: "invalid endpoint" });
       rejectUpgrade(socket, 404, "Not Found");
       return;
     }
     if (!originAllowed(req)) {
+      logLifecycle(logger, "warn", "terminal websocket upgrade rejected", { status: 403, reason: "invalid origin" });
       rejectUpgrade(socket, 403, "Forbidden");
       return;
     }
     const sessionId = verifySessionId(req);
     if (!sessionId) {
+      logLifecycle(logger, "warn", "terminal websocket upgrade rejected", { status: 401, reason: "invalid session" });
       rejectUpgrade(socket, 401, "Unauthorized");
       return;
     }
 
     webSocketServer.handleUpgrade(req, socket, head, (webSocket) => {
+      logLifecycle(logger, "info", "terminal websocket accepted");
       webSocketServer.emit("connection", webSocket, req, sessionId);
     });
   };
@@ -73,8 +87,8 @@ function attachTerminalWebSocket(httpServer, options = {}) {
     manager.close();
     webSocketServer.close();
   });
+  logLifecycle(logger, "info", "terminal websocket handler attached", { path: "/api/terminal" });
   return { manager, webSocketServer };
 }
 
 module.exports = { attachTerminalWebSocket, expectedOrigin, originAllowed, rejectUpgrade };
-

@@ -36,6 +36,7 @@ export function createTerminalClient({ element, serverId, path, onState }) {
   terminal.open(element);
 
   let connected = false;
+  let opened = false;
   let disposed = false;
   let finalStateReceived = false;
   let resizeTimer = null;
@@ -66,6 +67,7 @@ export function createTerminalClient({ element, serverId, path, onState }) {
   });
 
   socket.addEventListener("open", () => {
+    opened = true;
     fit(false);
     send({ type: "init", serverId, path, cols: terminal.cols, rows: terminal.rows });
   });
@@ -97,13 +99,20 @@ export function createTerminalClient({ element, serverId, path, onState }) {
     }
   });
 
-  socket.addEventListener("close", () => {
+  socket.addEventListener("close", (event) => {
     connected = false;
-    if (!disposed && !finalStateReceived) onState({ kind: "disconnected", label: "Disconnected" });
+    if (disposed || finalStateReceived) return;
+    if (!opened || event.code === 1008) {
+      onState({ kind: "error", label: "Connection rejected" });
+    } else if (event.code === 1011) {
+      onState({ kind: "error", label: "Terminal unavailable" });
+    } else {
+      onState({ kind: "disconnected", label: "Disconnected" });
+    }
   });
   socket.addEventListener("error", () => {
     connected = false;
-    if (!disposed) onState({ kind: "error", label: "Terminal connection failed" });
+    if (!disposed && !finalStateReceived) onState({ kind: "error", label: opened ? "Terminal unavailable" : "Connection rejected" });
   });
 
   window.setTimeout(() => fit(false), 0);
