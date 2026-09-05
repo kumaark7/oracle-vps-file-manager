@@ -1,12 +1,13 @@
 import { lazy, Suspense, useEffect, useMemo, useState } from "react";
 import { Loader2 } from "lucide-react";
-import { apiPath, downloadUrl, folderDownloadUrl, requestJson, saveText, uploadBody } from "./api/client.js";
+import { apiPath, authorizeLargeUploads, downloadUrl, folderDownloadUrl, requestJson, saveText, uploadBody } from "./api/client.js";
 import { LoginScreen } from "./components/LoginScreen.jsx";
 import { ServerSelector } from "./components/ServerSelector.jsx";
 import { Sidebar } from "./components/Sidebar.jsx";
 import { FileBrowser } from "./features/files/FileBrowser.jsx";
 import { FileDialog } from "./features/files/FileDialog.jsx";
-import { cmdPathCommand, joinPath, parentPath, sortedEntries, sshPathCommand } from "./features/files/fileUtils.js";
+import { LargeUploadDialog } from "./features/files/LargeUploadDialog.jsx";
+import { cmdPathCommand, formatBytes, joinPath, parentPath, sortedEntries, sshPathCommand } from "./features/files/fileUtils.js";
 import { Storage } from "./features/storage/Storage.jsx";
 import { UnsavedChangesDialog } from "./features/editor/UnsavedChangesDialog.jsx";
 import { useServers } from "./hooks/useServers.js";
@@ -50,6 +51,7 @@ export default function App() {
   const [terminalWorkspaceLoaded, setTerminalWorkspaceLoaded] = useState(false);
   const [terminalVisible, setTerminalVisible] = useState(false);
   const [terminalOpenRequest, setTerminalOpenRequest] = useState(null);
+  const [largeUploadRequest, setLargeUploadRequest] = useState(null);
   const currentServer = useMemo(() => servers.find((server) => server.id === currentServerId) || servers[0] || null, [servers, currentServerId]);
   const currentState = serverStates[currentServerId] || emptyServerState();
   const visibleEntries = useMemo(() => sortedEntries(currentState.entries, currentState.query), [currentState.entries, currentState.query]);
@@ -205,11 +207,32 @@ export default function App() {
     const pathAtStart = currentState.currentPath;
     const files = Array.from(event.target.files || []);
     if (!files.length) return;
+    const uploadLimitBytes = session.uploadLimitBytes || 2 * 1024 * 1024 * 1024;
+    const largeUploadMaxBytes = session.largeUploadMaxBytes || 10 * 1024 * 1024 * 1024;
+    const targets = files.map((file) => {
+      const relativePath = file.webkitRelativePath ? file.webkitRelativePath.replace(/\\/g, "/") : file.name;
+      return { file, path: joinPath(pathAtStart, relativePath), authorizationToken: "" };
+    });
     updateServerState(serverId, { status: "working", message: "" });
     try {
-      for (const file of files) {
-        const relativePath = file.webkitRelativePath ? file.webkitRelativePath.replace(/\\/g, "/") : file.name;
-        await uploadBody(serverId, joinPath(pathAtStart, relativePath), file);
+      const overMaximum = targets.find(({ file }) => file.size > largeUploadMaxBytes);
+      if (overMaximum) throw new Error(`${overMaximum.file.name} exceeds the ${formatBytes(largeUploadMaxBytes)} maximum`);
+      const protectedTargets = targets.filter(({ file }) => file.size > uploadLimitBytes);
+      if (protectedTargets.length) {
+        const tokens = await new Promise((resolve) => {
+          setLargeUploadRequest({
+            resolve,
+            uploads: protectedTargets.map(({ file, path }) => ({ serverId, path, size: file.size }))
+          });
+        });
+        if (!tokens) {
+          updateServerState(serverId, { status: "ready", message: "Upload canceled" });
+          return;
+        }
+        protectedTargets.forEach((target, index) => { target.authorizationToken = tokens[index]; });
+      }
+      for (const target of targets) {
+        await uploadBody(serverId, target.path, target.file, target.authorizationToken);
       }
       const label = files[0]?.webkitRelativePath ? "folder item" : "file";
       await loadFiles(pathAtStart, serverId, `${files.length} ${label}${files.length === 1 ? "" : "s"} uploaded`);
@@ -218,6 +241,19 @@ export default function App() {
     } finally {
       event.target.value = "";
     }
+  }
+
+  async function confirmLargeUpload(password) {
+    const request = largeUploadRequest;
+    if (!request) return;
+    const result = await authorizeLargeUploads(password, request.uploads);
+    request.resolve(result.tokens);
+    setLargeUploadRequest(null);
+  }
+
+  function cancelLargeUpload() {
+    largeUploadRequest?.resolve(null);
+    setLargeUploadRequest(null);
   }
 
   function download(entry) {
@@ -370,6 +406,7 @@ export default function App() {
         ) : null}
       </div>
       {dialog && <FileDialog dialog={dialog} serverId={currentServerId} currentPath={currentState.currentPath} onClose={() => setDialog(null)} handlers={dialogHandlers} />}
+      {largeUploadRequest && <LargeUploadDialog count={largeUploadRequest.uploads.length} maximumBytes={session.largeUploadMaxBytes} onAuthorize={confirmLargeUpload} onCancel={cancelLargeUpload} />}
       {pendingNavigation && <UnsavedChangesDialog onStay={() => setPendingNavigation(null)} onDiscard={discardAndContinue} />}
     </main>
   );

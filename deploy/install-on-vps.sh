@@ -72,7 +72,10 @@ OVFM_SERVERS_PATH=${SERVERS_FILE}
 OVFM_COMMENTS_PATH=/home/ubuntu/.oracle-vps-file-manager-comments.json
 OVFM_PUBLIC_HOST=${PUBLIC_HOST}
 TRUST_PROXY=true
-MAX_UPLOAD_BYTES=157286400
+MAX_UPLOAD_BYTES=2147483648
+MAX_LARGE_UPLOAD_BYTES=10737418240
+LARGE_UPLOAD_AUTH_TTL_MS=43200000
+UPLOAD_REQUEST_TIMEOUT_MS=43200000
 MAX_EDIT_BYTES=5242880
 TERMINAL_IDLE_TIMEOUT_MS=7200000
 TERMINAL_MAX_LIFETIME_MS=43200000
@@ -112,7 +115,7 @@ server {
     listen [::]:443 ssl;
     server_name ${PUBLIC_HOST};
 
-    client_max_body_size 150M;
+    client_max_body_size 2G;
 
     ssl_certificate /etc/letsencrypt/live/${PUBLIC_HOST}/fullchain.pem;
     ssl_certificate_key /etc/letsencrypt/live/${PUBLIC_HOST}/privkey.pem;
@@ -124,6 +127,19 @@ server {
         proxy_http_version 1.1;
         proxy_set_header Upgrade \$http_upgrade;
         proxy_set_header Connection "upgrade";
+        proxy_set_header Host \$host;
+        proxy_set_header X-Real-IP \$remote_addr;
+        proxy_set_header X-Forwarded-For \$proxy_add_x_forwarded_for;
+        proxy_set_header X-Forwarded-Proto \$scheme;
+        proxy_read_timeout 7200s;
+        proxy_send_timeout 7200s;
+    }
+
+    location = /api/upload {
+        client_max_body_size 10G;
+        proxy_request_buffering off;
+        proxy_pass http://127.0.0.1:4174;
+        proxy_http_version 1.1;
         proxy_set_header Host \$host;
         proxy_set_header X-Real-IP \$remote_addr;
         proxy_set_header X-Forwarded-For \$proxy_add_x_forwarded_for;

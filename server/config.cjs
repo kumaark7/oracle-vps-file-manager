@@ -40,7 +40,10 @@ const config = {
   sessionSecret: process.env.SESSION_SECRET || crypto.randomBytes(32).toString("hex"),
   sessionTtlMs: positiveInteger("SESSION_TTL_MS", 12 * 60 * 60 * 1000),
   maxJsonBytes: positiveInteger("MAX_JSON_BYTES", 2 * 1024 * 1024),
-  maxUploadBytes: positiveInteger("MAX_UPLOAD_BYTES", 150 * 1024 * 1024),
+  maxUploadBytes: positiveInteger("MAX_UPLOAD_BYTES", 2 * 1024 * 1024 * 1024),
+  maxLargeUploadBytes: positiveInteger("MAX_LARGE_UPLOAD_BYTES", 10 * 1024 * 1024 * 1024),
+  largeUploadAuthorizationTtlMs: positiveInteger("LARGE_UPLOAD_AUTH_TTL_MS", 12 * 60 * 60 * 1000),
+  uploadRequestTimeoutMs: positiveInteger("UPLOAD_REQUEST_TIMEOUT_MS", 12 * 60 * 60 * 1000),
   maxEditBytes: positiveInteger("MAX_EDIT_BYTES", 5 * 1024 * 1024),
   maxProcessBytes: positiveInteger("MAX_PROCESS_BYTES", 220 * 1024 * 1024),
   terminalIdleTimeoutMs: positiveInteger("TERMINAL_IDLE_TIMEOUT_MS", 2 * 60 * 60 * 1000),
@@ -65,6 +68,10 @@ authDir: path.resolve(
 
 if (config.sessionSecret.length < 32) {
   throw new Error("SESSION_SECRET must contain at least 32 characters");
+}
+
+if (config.maxLargeUploadBytes <= config.maxUploadBytes) {
+  throw new Error("MAX_LARGE_UPLOAD_BYTES must be greater than MAX_UPLOAD_BYTES");
 }
 
 if (!process.env.SESSION_SECRET) {

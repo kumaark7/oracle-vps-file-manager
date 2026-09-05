@@ -12,6 +12,7 @@
     "test:editor": "node --test test/editor.test.cjs",
     "test:terminal": "node --test test/terminal.test.cjs",
     "test:terminal-workspace": "node --test test/terminal-workspace.test.cjs",
+    "test:upload": "node --test test/upload.test.cjs",
     "test:servers": "node --test test/servers.test.cjs",
     "servers:check": "node scripts/check-servers.cjs",
     "preview": "vite preview",

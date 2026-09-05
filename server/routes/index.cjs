@@ -1,8 +1,8 @@
 const config = require("../config.cjs");
-const { requireAuth } = require("../auth.cjs");
+const { authorizeLargeUploads, requireAuth } = require("../auth.cjs");
 const { getServer, getServers, LOCAL_SERVER_ID, publicServer } = require("../servers.cjs");
 const { getServerAdapter } = require("../adapters/index.cjs");
-const { HttpError, parseUrl, sendError, sendJson } = require("../http.cjs");
+const { HttpError, parseUrl, readJson, sendError, sendJson } = require("../http.cjs");
 const { handleAuthRoute } = require("./auth.cjs");
 const { handleFilesRoute } = require("./files.cjs");
 const { handleStorageRoute } = require("./storage.cjs");
@@ -26,7 +26,15 @@ async function handleApi(req, res) {
     verifySameOrigin(req);
     if (await handleAuthRoute(req, res, requestUrl)) return;
 
-    requireAuth(req);
+    const sessionId = requireAuth(req);
+    req.ovfmSessionId = sessionId;
+    if (req.method === "POST" && requestUrl.pathname === "/api/upload/authorize") {
+      const body = await readJson(req, config.maxJsonBytes);
+      const serverIds = [...new Set((Array.isArray(body.uploads) ? body.uploads : []).map((upload) => upload?.serverId))];
+      await Promise.all(serverIds.map((serverId) => getServer(serverId)));
+      authorizeLargeUploads(req, res, body, sessionId);
+      return;
+    }
     if (req.method === "GET" && requestUrl.pathname === "/api/servers") {
       const servers = await getServers();
       sendJson(res, 200, { servers: servers.map(publicServer), defaultServerId: LOCAL_SERVER_ID });

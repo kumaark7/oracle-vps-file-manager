@@ -9,10 +9,12 @@ const {
 } = require("./auth/recovery.cjs");
 const { verifyAndConsumeTotp } = require("./auth/totp.cjs");
 const { createAttemptLimiter } = require("./auth/rate-limit.cjs");
+const { createLargeUploadAuthorizations } = require("./auth/upload-authorization.cjs");
 
 const {
   safeEqual,
   verifySession,
+  verifySessionId,
   createSessionCookie,
   destroySession,
   clearSessionCookie
@@ -30,12 +32,67 @@ const totpAttempts = createAttemptLimiter({
   blockMs: 15 * 60 * 1000
 });
 
+const largeUploadAttempts = createAttemptLimiter({
+  maxAttempts: 5,
+  windowMs: 15 * 60 * 1000,
+  blockMs: 15 * 60 * 1000
+});
+
+function uploadLimits() {
+  return {
+    uploadLimitBytes: config.maxUploadBytes,
+    largeUploadMaxBytes: config.maxLargeUploadBytes
+  };
+}
+
 function sendAuthenticated(req, res, username = config.adminUser) {
   res.setHeader("Set-Cookie", createSessionCookie(req));
 
   sendJson(res, 200, {
     ok: true,
-    username
+    username,
+    ...uploadLimits()
+  });
+}
+
+function validateLargeUploads(uploads) {
+  if (!Array.isArray(uploads) || uploads.length < 1 || uploads.length > 1000) {
+    throw new HttpError(400, "Large upload selection is invalid");
+  }
+  return uploads.map((upload) => {
+    const serverId = String(upload?.serverId || "").trim();
+    const uploadPath = String(upload?.path || "").trim();
+    const size = Number(upload?.size);
+    if (
+      !serverId ||
+      !uploadPath.startsWith("/") ||
+      uploadPath.includes("\0") ||
+      uploadPath.includes("\\") ||
+      uploadPath.length > 4096 ||
+      !Number.isSafeInteger(size) ||
+      size <= config.maxUploadBytes ||
+      size > config.maxLargeUploadBytes
+    ) {
+      throw new HttpError(400, "Large upload selection is invalid");
+    }
+    return { serverId, path: uploadPath, size };
+  });
+}
+
+function authorizeLargeUploads(req, res, body, sessionId) {
+  const password = String(body.password || "");
+  const attemptKey = `${sessionId}:${requestClientAddress(req, config.trustProxy)}`;
+  if (!largeUploadAttempts.take(attemptKey)) {
+    throw new HttpError(429, "Too many password attempts. Try again later.");
+  }
+  if (!config.adminPassword || !safeEqual(password, config.adminPassword)) {
+    throw new HttpError(401, "Invalid password");
+  }
+  largeUploadAttempts.reset(attemptKey);
+  const uploads = validateLargeUploads(body.uploads);
+  sendJson(res, 200, {
+    tokens: createLargeUploadAuthorizations(sessionId, uploads),
+    expiresInMs: config.largeUploadAuthorizationTtlMs
   });
 }
 
@@ -103,9 +160,11 @@ function logout(req, res) {
 }
 
 function requireAuth(req) {
-  if (!verifySession(req)) {
+  const sessionId = verifySessionId(req);
+  if (!sessionId) {
     throw new HttpError(401, "Login required");
   }
+  return sessionId;
 }
 
 function sessionStatus(req) {
@@ -113,13 +172,15 @@ function sessionStatus(req) {
     authenticated: verifySession(req),
     username: config.adminUser,
     passwordConfigured: Boolean(config.adminPassword),
-    defaultServerId: "local"
+    defaultServerId: "local",
+    ...uploadLimits()
   };
 }
 
 module.exports = {
   login,
   loginWithRecovery,
+  authorizeLargeUploads,
   logout,
   requireAuth,
   sessionStatus

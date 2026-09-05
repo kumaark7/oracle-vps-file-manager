@@ -4,6 +4,7 @@ const { contentDisposition, HttpError, limitStream, pipeline, readBuffer, readJs
 const { getDetails, listFiles } = require("../services/files.cjs");
 const { assertEditablePath, decodeEditableBuffer, readEditableText } = require("../services/editor.cjs");
 const { setComment } = require("../services/comments.cjs");
+const { consumeLargeUploadAuthorization } = require("../auth/upload-authorization.cjs");
 
 async function parseActionBody(req) {
   return readJson(req, config.maxJsonBytes);
@@ -16,6 +17,32 @@ async function writeRequest(req, adapter, remotePath, maxBytes = config.maxUploa
   const pass = new PassThrough();
   const upload = adapter.write(remotePath, pass);
   await Promise.all([pipeline(req, limited, pass), upload]);
+}
+
+function uploadSize(req) {
+  const raw = req.headers["x-ovfm-upload-size"];
+  if (raw === undefined) return 0;
+  const size = Number(raw);
+  if (!Number.isSafeInteger(size) || size < 0) throw new HttpError(400, "Invalid upload size");
+  return size;
+}
+
+function uploadLimit(req, serverId, remotePath) {
+  const declaredLength = Number(req.headers["content-length"] || 0);
+  const size = uploadSize(req);
+  if (!Number.isSafeInteger(declaredLength) || declaredLength < 0 || (declaredLength && size && declaredLength !== size)) {
+    throw new HttpError(400, "Invalid upload size");
+  }
+  const expectedSize = size || declaredLength;
+  if (expectedSize > config.maxLargeUploadBytes) throw new HttpError(413, "Upload exceeds the configured maximum");
+  if (expectedSize <= config.maxUploadBytes) return config.maxUploadBytes;
+  const authorized = consumeLargeUploadAuthorization(
+    req.ovfmSessionId,
+    req.headers["x-ovfm-upload-authorization"],
+    { serverId, path: remotePath, size: expectedSize }
+  );
+  if (!authorized) throw new HttpError(403, "Password authorization is required above the standard upload limit");
+  return expectedSize;
 }
 
 async function writeEditableRequest(req, adapter, remotePath) {
@@ -89,7 +116,8 @@ async function handleFilesRoute(req, res, requestUrl, server, adapter) {
     return true;
   }
   if (req.method === "POST" && pathname === "/api/upload") {
-    await writeRequest(req, adapter, requireValue(remotePath, "path"));
+    const targetPath = requireValue(remotePath, "path");
+    await writeRequest(req, adapter, targetPath, uploadLimit(req, server.id, targetPath));
     sendJson(res, 200, { ok: true });
     return true;
   }

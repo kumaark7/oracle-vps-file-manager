@@ -110,7 +110,10 @@ OVFM_SERVERS_PATH=/etc/oracle-vps-file-manager-servers.json
 OVFM_COMMENTS_PATH=/home/ubuntu/.oracle-vps-file-manager-comments.json
 OVFM_PUBLIC_HOST=files.example.com
 TRUST_PROXY=true
-MAX_UPLOAD_BYTES=157286400
+MAX_UPLOAD_BYTES=2147483648
+MAX_LARGE_UPLOAD_BYTES=10737418240
+LARGE_UPLOAD_AUTH_TTL_MS=43200000
+UPLOAD_REQUEST_TIMEOUT_MS=43200000
 MAX_EDIT_BYTES=5242880
 TERMINAL_IDLE_TIMEOUT_MS=7200000
 TERMINAL_MAX_LIFETIME_MS=43200000
@@ -199,7 +202,7 @@ The browser receives server labels, hosts, ports, usernames, and protected roots
 
 Uploads use raw request bodies and are written as streams. Downloads stream directly from the selected local or SSH server to the browser. Files are no longer Base64-encoded into JSON for transfer.
 
-Browser text editing is intentionally bounded by `MAX_EDIT_BYTES` because an editor must hold the text in memory. Uploads are bounded separately by `MAX_UPLOAD_BYTES`. Folder upload sends each contained file as an individual streamed request while preserving its relative path.
+Browser text editing is intentionally bounded by `MAX_EDIT_BYTES` because an editor must hold the text in memory. Uploads up to `MAX_UPLOAD_BYTES` (2 GB by default) proceed normally. Larger files require password re-authentication and are capped by `MAX_LARGE_UPLOAD_BYTES` (10 GB by default). Large-upload approvals are session-bound, single-use, expire after `LARGE_UPLOAD_AUTH_TTL_MS`, and are tied to the selected server, destination path, and exact file size. Folder upload asks once for the selected large files and sends each item as an individual streamed request while preserving its relative path.
 
 Folder `Zip` creates a conflict-safe archive beside the source folder. Folder `Download` streams a ZIP to the browser without keeping a permanent download archive on the selected server.
 
@@ -277,7 +280,7 @@ The installer preserves the environment file, remote-server configuration, comme
 
 ## Nginx
 
-The supplied Nginx configuration proxies to `127.0.0.1:4174`, sets `X-Forwarded-Proto`, and permits request bodies up to 150 MB. Keep Nginx's `client_max_body_size` aligned with `MAX_UPLOAD_BYTES`.
+The supplied Nginx configuration proxies to `127.0.0.1:4174`, sets `X-Forwarded-Proto`, permits ordinary request bodies up to 2 GB, and scopes a streaming 10 GB ceiling to `/api/upload`. Keep the Nginx limits aligned with `MAX_UPLOAD_BYTES` and `MAX_LARGE_UPLOAD_BYTES`.
 
 The exact `/api/terminal` location must use HTTP/1.1 and forward WebSocket upgrade headers:
 

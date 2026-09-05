@@ -6,7 +6,9 @@ const initialSession = {
   authenticated: false,
   passwordConfigured: true,
   username: "",
-  defaultServerId: "local"
+  defaultServerId: "local",
+  uploadLimitBytes: 2 * 1024 * 1024 * 1024,
+  largeUploadMaxBytes: 10 * 1024 * 1024 * 1024
 };
 
 export function useSession() {
@@ -31,7 +33,7 @@ export function useSession() {
       method: "POST",
       body: JSON.stringify({ username, password: credential })
     });
-    setSession((current) => ({ ...current, loading: false, authenticated: true, username: data.username, passwordConfigured: true }));
+    setSession((current) => ({ ...current, ...data, loading: false, authenticated: true, passwordConfigured: true }));
   }, []);
 
   const loginWithRecovery = useCallback(async (code) => {
@@ -43,6 +45,7 @@ export function useSession() {
       ...current,
       loading: false,
       authenticated: true,
+      ...data,
       username: data.username
     }));
   }, []);

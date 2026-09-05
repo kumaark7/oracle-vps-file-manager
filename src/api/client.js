@@ -36,11 +36,22 @@ export async function requestText(pathname) {
   return response.text();
 }
 
-export async function uploadBody(serverId, remotePath, body) {
+export async function authorizeLargeUploads(password, uploads) {
+  return requestJson("/api/upload/authorize", {
+    method: "POST",
+    body: JSON.stringify({ password, uploads })
+  });
+}
+
+export async function uploadBody(serverId, remotePath, body, authorizationToken = "") {
   const response = await fetch(apiPath("/api/upload", serverId, { path: remotePath }), {
     method: "POST",
     credentials: "same-origin",
-    headers: { "Content-Type": "application/octet-stream" },
+    headers: {
+      "Content-Type": "application/octet-stream",
+      "X-OVFM-Upload-Size": String(body.size),
+      ...(authorizationToken ? { "X-OVFM-Upload-Authorization": authorizationToken } : {})
+    },
     body
   });
   if (!response.ok) throw await responseError(response);

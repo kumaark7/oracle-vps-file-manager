@@ -67,6 +67,7 @@ function createApplicationServer(options = {}) {
     }
     serveStatic(req, res).catch((error) => sendError(res, error));
   });
+  server.requestTimeout = config.uploadRequestTimeoutMs;
   const terminal = attachTerminalWebSocket(server, options.terminalOptions || {});
   server.terminalManager = terminal.manager;
   return server;
